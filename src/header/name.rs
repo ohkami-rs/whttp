@@ -5,12 +5,10 @@ use super::hash::{normalized_hash, const_normalized_hash};
 /// 
 /// ## usage
 /// 
-/// For standard headers, always use module consts (like `header::ContentType`).
+/// - For standard header, always use module const (like `header::ContentType`).
 /// 
-/// For other custom headers, define them as 
-/// 
-/// Use module consts for standard headers, and you can define
-/// a custom header by `Header::new`.
+/// - For other custom header, define your own const by `Header::new`
+/// and always use it.
 /// 
 /// ## selection policy of standard headers
 /// 
@@ -34,24 +32,37 @@ pub struct Header {
     hash: usize,
 }
 
-impl std::hash::Hash for Header {
-    #[inline]
-    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
-        state.write_usize(self.hash);
+const _/* trait impls */: () = {
+    unsafe impl Send for Header {}
+    unsafe impl Sync for Header {}
+    
+    impl std::hash::Hash for Header {
+        #[inline]
+        fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+            state.write_usize(self.hash);
+        }
     }
-}
+    
+    impl PartialEq for Header {
+        #[inline]
+        fn eq(&self, other: &Self) -> bool {
+            self.hash == other.hash
+        }
+    }
+    impl Eq for Header {}
 
-// #[inline]
-// pub(crate) const fn available(byte: u8) -> bool {
-//     match byte {
-//         | b'!' | b'"' | b'#' | b'$' | b'%' | b'&' | b'\'' | b'*'
-//         | b'+' | b'-' | b'.' | b'^' | b'_' | b'`' | b'|'  | b'~'
-//         | b'0'..=b'9'
-//         | b'A'..=b'Z' | b'a'..=b'z'
-//         => true,
-//         _ => false
-//     }
-// }
+    impl std::ops::Deref for Header {
+        type Target = str;
+
+        #[inline]
+        fn deref(&self) -> &Self::Target {
+            // SAFETY: `Header` constructors' SAFETYs
+            unsafe {self.name.as_ref()}
+        }
+    }
+
+    /* not impl std::ops::DerefMut */
+};
 
 #[inline]
 pub(crate) const fn normalized(byte: u8) -> Result<u8, InvalidHeader> {
