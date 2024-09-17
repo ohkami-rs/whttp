@@ -1,0 +1,15 @@
+[package]
+name          = "whttp"
+version       = "0.1.0"
+edition       = "2021"
+authors       = ["kanarus <kanarus786@gmail.com>"]
+documentation = "https://docs.rs/whttp"
+homepage      = "https://crates.io/crates/whttp"
+repository    = "https://github.com/ohkami-rs/whttp"
+readme        = "README.md"
+license       = "MIT"
+description   = "A set of HTTP types"
+keywords      = ["http"]
+categories    = ["web-programming"]
+
+[dependencies]
