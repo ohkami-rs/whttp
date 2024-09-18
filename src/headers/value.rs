@@ -1,3 +1,4 @@
+use crate::Str;
 use std::ptr::NonNull;
 
 /// HTTP header value.
@@ -5,13 +6,7 @@ use std::ptr::NonNull;
 /// ## Note
 /// RFC allows non UTF-8 bytes for HTTP header, but `whttp` doesn't.
 #[derive(Clone)]
-pub struct Value(Repr);
-
-#[derive(Clone)]
-enum Repr {
-    Ref(NonNull<str>),
-    Own(String),
-}
+pub struct Value(Str);
 
 pub struct InvalidValue;
 impl std::error::Error for InvalidValue {}
@@ -54,9 +49,6 @@ const fn const_valid(bytes: &[u8]) -> bool {
 }
 
 const _/* trait impls */: () = {
-    unsafe impl Send for Value {}
-    unsafe impl Sync for Value {}
-
     impl std::ops::Deref for Value {
         type Target = str;
 
@@ -64,8 +56,8 @@ const _/* trait impls */: () = {
         fn deref(&self) -> &Self::Target {
             match &self.0 {
                 // SAFETY: `Value` constructors' SAFETY
-                Repr::Ref(r) => unsafe {r.as_ref()},
-                Repr::Own(o) => o.as_str()
+                Str::Ref(r) => unsafe {r.as_ref()},
+                Str::Own(o) => o.as_str()
             }
         }
     }
@@ -98,14 +90,14 @@ const _/* trait impls */: () = {
         #[inline]
         fn from(s: &'static str) -> Self {
             if !valid(s.as_bytes()) {panic!("invalid header value")}
-            Self(Repr::Ref(s.into()))
+            Self(Str::Ref(s.into()))
         }
     }
     impl From<String> for Value {
         #[inline]
         fn from(s: String) -> Self {
             if !valid(s.as_bytes()) {panic!("invalid header value")}
-            Self(Repr::Own(s))
+            Self(Str::Own(s))
         }
     }
     impl From<std::borrow::Cow<'static, str>> for Value {
@@ -122,7 +114,7 @@ impl Value {
     pub const fn new(value: &'static str) -> Self {
         if !const_valid(value.as_bytes()) {panic!("invalid header value")}
         // SAFETY: 'static reference is always valid
-        Self(Repr::Ref(unsafe {NonNull::new_unchecked(value as *const str as *mut str)}))
+        Self(Str::Ref(unsafe {NonNull::new_unchecked(value as *const str as *mut str)}))
     }
 }
 
@@ -134,7 +126,7 @@ impl Value {
             // SAFETY: `valid(bytes)` returned true
             let bytes = unsafe {std::str::from_utf8_unchecked(bytes)};
             // SAFETY: function SAFETY
-            Ok(Self(Repr::Ref(unsafe {NonNull::new_unchecked(bytes as *const str as *mut str)})))
+            Ok(Self(Str::Ref(unsafe {NonNull::new_unchecked(bytes as *const str as *mut str)})))
         } else {
             Err(InvalidValue)
         }
@@ -142,16 +134,16 @@ impl Value {
 
     pub(crate) fn append(&mut self, another: Value) {
         match &mut self.0 {
-            Repr::Own(s) => {
+            Str::Own(s) => {
                 s.push(',');
                 s.push_str(&another);
             }
-            Repr::Ref(s) => {
+            Str::Ref(s) => {
                 // SAFETY: `Value` constructors' SAFETY
                 let mut s = String::from(unsafe {s.as_ref()});
                 s.push(',');
                 s.push_str(&another);
-                self.0 = Repr::Own(s)
+                self.0 = Str::Own(s)
             }
         }
     }

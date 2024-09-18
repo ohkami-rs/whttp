@@ -2,7 +2,7 @@ mod hash;
 mod name;
 mod value;
 
-pub use name::{Header, standard::*};
+pub use name::{Header, standard};
 pub use value::Value;
 
 use ::hashbrown::raw::RawTable;
@@ -97,5 +97,10 @@ impl Headers {
             let (h, v) = unsafe {bucket.as_ref()};
             (*h, &**v)
         })
+    }
+
+    #[inline]
+    pub fn clear(&mut self) {
+        self.table.clear()
     }
 }

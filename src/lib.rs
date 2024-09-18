@@ -1,5 +1,9 @@
-pub mod header;
-pub mod request;
-pub mod response;
+mod str;
+mod headers;
+mod request;
+mod response;
 
-pub use header::{Header, Headers};
+use str::Str;
+
+pub use headers::{Header, Headers};
+pub mod header {pub use crate::headers::standard::*;}
