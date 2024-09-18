@@ -85,7 +85,6 @@ const fn multiply_mix(x: u64, y: u64) -> u64 {
 
 #[inline]
 const fn normalized_hash_core(bytes: &[u8]) -> Result<u64, InvalidHeader> {
-    
     #[inline(always)]
     const unsafe fn normalized_array_from_slice_and_start<const N: usize>(
         slice: &[u8],
@@ -158,60 +157,70 @@ const fn normalized_hash_core(bytes: &[u8]) -> Result<u64, InvalidHeader> {
 }
 
 #[cfg(test)]
-pub fn original_hash_bytes(bytes: &[u8]) -> u64 {
-    let len = bytes.len();
-    let mut s0 = SEED1;
-    let mut s1 = SEED2;
-
-    if len <= 16 {
-        // XOR the input into s0, s1.
-        if len >= 8 {
-            s0 ^= u64::from_le_bytes(bytes[0..8].try_into().unwrap());
-            s1 ^= u64::from_le_bytes(bytes[len - 8..].try_into().unwrap());
-        } else if len >= 4 {
-            s0 ^= u32::from_le_bytes(bytes[0..4].try_into().unwrap()) as u64;
-            s1 ^= u32::from_le_bytes(bytes[len - 4..].try_into().unwrap()) as u64;
-        } else if len > 0 {
-            let lo = bytes[0];
-            let mid = bytes[len / 2];
-            let hi = bytes[len - 1];
-            s0 ^= lo as u64;
-            s1 ^= ((hi as u64) << 8) | mid as u64;
-        }
-    } else {
-        // Handle bulk (can partially overlap with suffix).
-        let mut off = 0;
-        while off < len - 16 {
-            let x = u64::from_le_bytes(bytes[off..off + 8].try_into().unwrap());
-            let y = u64::from_le_bytes(bytes[off + 8..off + 16].try_into().unwrap());
-
-            // Replace s1 with a mix of s0, x, and y, and s0 with s1.
-            // This ensures the compiler can unroll this loop into two
-            // independent streams, one operating on s0, the other on s1.
-            //
-            // Since zeroes are a common input we prevent an immediate trivial
-            // collapse of the hash function by XOR'ing a constant with y.
-            let t = multiply_mix(s0 ^ x, PREVENT_TRIVIAL_ZERO_COLLAPSE ^ y);
-            s0 = s1;
-            s1 = t;
-            off += 16;
-        }
-
-        let suffix = &bytes[len - 16..];
-        s0 ^= u64::from_le_bytes(suffix[0..8].try_into().unwrap());
-        s1 ^= u64::from_le_bytes(suffix[8..16].try_into().unwrap());
-    }
-
-    multiply_mix(s0, s1) ^ (len as u64)
-}
-
-
-#[cfg(test)]
 mod tests {
     use super::*;
 
+    mod rustc_hash {
+        use super::*;
+
+        /// https://github.com/rust-lang/rustc-hash/blob/eb049a8209f58003957c34477a2d8d2729f6b633/src/lib.rs#L252-L297
+        pub(super) fn hash_bytes(bytes: &[u8]) -> u64 {
+            let len = bytes.len();
+            let mut s0 = SEED1;
+            let mut s1 = SEED2;
+
+            if len <= 16 {
+                // XOR the input into s0, s1.
+                if len >= 8 {
+                    s0 ^= u64::from_le_bytes(bytes[0..8].try_into().unwrap());
+                    s1 ^= u64::from_le_bytes(bytes[len - 8..].try_into().unwrap());
+                } else if len >= 4 {
+                    s0 ^= u32::from_le_bytes(bytes[0..4].try_into().unwrap()) as u64;
+                    s1 ^= u32::from_le_bytes(bytes[len - 4..].try_into().unwrap()) as u64;
+                } else if len > 0 {
+                    let lo = bytes[0];
+                    let mid = bytes[len / 2];
+                    let hi = bytes[len - 1];
+                    s0 ^= lo as u64;
+                    s1 ^= ((hi as u64) << 8) | mid as u64;
+                }
+            } else {
+                // Handle bulk (can partially overlap with suffix).
+                let mut off = 0;
+                while off < len - 16 {
+                    let x = u64::from_le_bytes(bytes[off..off + 8].try_into().unwrap());
+                    let y = u64::from_le_bytes(bytes[off + 8..off + 16].try_into().unwrap());
+
+                    // Replace s1 with a mix of s0, x, and y, and s0 with s1.
+                    // This ensures the compiler can unroll this loop into two
+                    // independent streams, one operating on s0, the other on s1.
+                    //
+                    // Since zeroes are a common input we prevent an immediate trivial
+                    // collapse of the hash function by XOR'ing a constant with y.
+                    let t = multiply_mix(s0 ^ x, PREVENT_TRIVIAL_ZERO_COLLAPSE ^ y);
+                    s0 = s1;
+                    s1 = t;
+                    off += 16;
+                }
+
+                let suffix = &bytes[len - 16..];
+                s0 ^= u64::from_le_bytes(suffix[0..8].try_into().unwrap());
+                s1 ^= u64::from_le_bytes(suffix[8..16].try_into().unwrap());
+            }
+
+            multiply_mix(s0, s1) ^ (len as u64)
+        }
+    }
+
     #[test]
     fn test_case_ignoring() {
-        //assert_eq!(n);
+        assert_eq!(normalized_hash(b"Authorization"), normalized_hash(b"authorization"));
+        assert_eq!(normalized_hash(b"Content-Type"), normalized_hash(b"content-type"));
+    }
+
+    #[test]
+    fn test_eq_to_rustc_hash_in_already_normalized_cases() {
+        assert_eq!(rustc_hash::hash_bytes(b"authorization"), normalized_hash_core(b"authorization").unwrap());
+        assert_eq!(rustc_hash::hash_bytes(b"content-type"), normalized_hash_core(b"content-type").unwrap());
     }
 }

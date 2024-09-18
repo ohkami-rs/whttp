@@ -82,6 +82,7 @@ pub(crate) const fn normalized(byte: u8) -> Result<u8, InvalidHeader> {
     }
 }
 
+#[derive(PartialEq)]
 pub struct InvalidHeader;
 impl std::error::Error for InvalidHeader {}
 impl std::fmt::Debug for InvalidHeader {

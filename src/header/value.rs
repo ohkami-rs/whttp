@@ -54,6 +54,9 @@ const fn const_valid(bytes: &[u8]) -> bool {
 }
 
 const _/* trait impls */: () = {
+    unsafe impl Send for Value {}
+    unsafe impl Sync for Value {}
+
     impl std::ops::Deref for Value {
         type Target = str;
 
