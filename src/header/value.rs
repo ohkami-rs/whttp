@@ -139,4 +139,20 @@ impl Value {
             Err(InvalidValue)
         }
     }
+
+    pub(crate) fn append(&mut self, another: Value) {
+        match &mut self.0 {
+            Repr::Own(s) => {
+                s.push(',');
+                s.push_str(&another);
+            }
+            Repr::Ref(s) => {
+                // SAFETY: `Value` constructors' SAFETY
+                let mut s = String::from(unsafe {s.as_ref()});
+                s.push(',');
+                s.push_str(&another);
+                self.0 = Repr::Own(s)
+            }
+        }
+    }
 }
