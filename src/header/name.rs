@@ -1,5 +1,5 @@
 use std::ptr::NonNull;
-use super::hash::{normalized_hash, const_normalized_hash};
+use super::hash::normalized_hash;
 
 /// # HTTP Header
 /// 
@@ -29,7 +29,7 @@ use super::hash::{normalized_hash, const_normalized_hash};
 #[derive(Clone, Copy)]
 pub struct Header {
     name: NonNull<str>,
-    hash: usize,
+    pub(crate) hash: u64
 }
 
 const _/* trait impls */: () = {
@@ -39,7 +39,7 @@ const _/* trait impls */: () = {
     impl std::hash::Hash for Header {
         #[inline]
         fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
-            state.write_usize(self.hash);
+            state.write_u64(self.hash);
         }
     }
     
@@ -50,6 +50,12 @@ const _/* trait impls */: () = {
         }
     }
     impl Eq for Header {}
+
+    impl std::fmt::Debug for Header {
+        fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+            f.write_str(&**self)
+        }
+    }
 
     impl std::ops::Deref for Header {
         type Target = str;
@@ -91,7 +97,7 @@ impl std::fmt::Display for InvalidHeader {
 
 impl Header {
     pub const fn new(name: &'static str) -> Self {
-        let hash = match const_normalized_hash(name.as_bytes()) {
+        let hash = match normalized_hash(name.as_bytes()) {
             Ok(hash) => hash,
             Err(_) => panic!("invalid header name")
         };
@@ -122,7 +128,7 @@ impl Header {
 
     /// Parse `name` to `Header`.
     /// 
-    /// SAFETY: `name` is valid reference whenever the return value can be accessed
+    /// SAFETY: `name` is valid reference whenever returned `Header` can be accessed
     #[inline(always)]
     pub(crate) unsafe fn parse(name: &[u8]) -> Result<Self, InvalidHeader> {
         let hash = normalized_hash(name)?;
@@ -166,7 +172,7 @@ macro_rules! Standard {
             }
 
             #[inline(always)]
-            const fn hash(&self) -> usize {
+            const fn hash(&self) -> u64 {
                 match self {
                     $( Self::$name => $hash, )*
                 }
@@ -178,8 +184,8 @@ macro_rules! Standard {
             #[test]
             fn test_standard_hash() {
                 $(
-                    assert_eq!($hash, crate::header::hash::const_normalized_hash($bytes).unwrap());
-                    assert_eq!($hash, crate::header::hash::const_normalized_hash($lower).unwrap());
+                    assert_eq!($hash, crate::header::hash::normalized_hash($bytes).unwrap());
+                    assert_eq!($hash, crate::header::hash::normalized_hash($lower).unwrap());
                 )*
             }
 

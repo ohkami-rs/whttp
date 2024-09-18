@@ -1,175 +1,194 @@
-//! case-ignoring fxhash
+//! based on
+//! [rustc-hash v2](https://github.com/rust-lang/rustc-hash/blob/eb049a8209f58003957c34477a2d8d2729f6b633/src/lib.rs)
+//! ; MIT
 
 use super::name::{normalized, InvalidHeader};
 use std::{hash::Hasher, ops::BitXor};
 
-#[cfg(target_pointer_width = "32")]
-const K: usize = 0x9e3779b9;
 #[cfg(target_pointer_width = "64")]
-const K: usize = 0x517cc1b727220a95;
+const K: usize = 0xf1357aea2e62a9c5;
+#[cfg(target_pointer_width = "32")]
+const K: usize = 0x93d765dd;
 
-#[inline(always)]
-fn take_first_chunk<'s, const N: usize>(slice: &mut &'s [u8]) -> Option<&'s [u8; N]> {
-    let (first, tail) = slice.split_first_chunk()?;
-    *slice = tail;
-    Some(first)
-}
 
-#[derive(Clone)]
-pub struct HeaderHasher {
-    hash: usize,
-}
 
-impl HeaderHasher {
-    #[inline(always)]
-    fn add(&mut self, word: usize) {
-        self.hash = self.hash.rotate_left(5).bitxor(word).wrapping_mul(K);
+#[inline]
+const fn multiply_mix(x: u64, y: u64) -> u64 {
+    #[cfg(target_pointer_width = "64")]
+    {
+        // We compute the full u64 x u64 -> u128 product, this is a single mul
+        // instruction on x86-64, one mul plus one mulhi on ARM64.
+        let full = (x as u128) * (y as u128);
+        let lo = full as u64;
+        let hi = (full >> 64) as u64;
+
+        // The middle bits of the full product fluctuate the most with small
+        // changes in the input. This is the top bits of lo and the bottom bits
+        // of hi. We can thus make the entire output fluctuate with small
+        // changes to the input by XOR'ing these two halves.
+        lo ^ hi
+
+        // Unfortunately both 2^64 + 1 and 2^64 - 1 have small prime factors,
+        // otherwise combining with + or - could result in a really strong hash, as:
+        //     x * y = 2^64 * hi + lo = (-1) * hi + lo = lo - hi,   (mod 2^64 + 1)
+        //     x * y = 2^64 * hi + lo =    1 * hi + lo = lo + hi,   (mod 2^64 - 1)
+        // Multiplicative hashing is universal in a field (like mod p).
+    }
+
+    #[cfg(target_pointer_width = "32")]
+    {
+        // u64 x u64 -> u128 product is prohibitively expensive on 32-bit.
+        // Decompose into 32-bit parts.
+        let lx = x as u32;
+        let ly = y as u32;
+        let hx = (x >> 32) as u32;
+        let hy = (y >> 32) as u32;
+
+        // u32 x u32 -> u64 the low bits of one with the high bits of the other.
+        let afull = (lx as u64) * (hy as u64);
+        let bfull = (hx as u64) * (ly as u64);
+
+        // Combine, swapping low/high of one of them so the upper bits of the
+        // product of one combine with the lower bits of the other.
+        afull ^ bfull.rotate_right(32)
     }
 }
 
-impl Default for HeaderHasher {
-    #[inline(always)]
-    fn default() -> Self {
-        Self { hash: 0 }
-    }
-}
+// Nothing special, digits of pi.
+const SEED1: u64 = 0x243f6a8885a308d3;
+const SEED2: u64 = 0x13198a2e03707344;
+const PREVENT_TRIVIAL_ZERO_COLLAPSE: u64 = 0xa4093822299f31d0;
 
-impl Hasher for HeaderHasher {
-    #[inline]
-    fn write(&mut self, mut bytes: &[u8]) {
-        let mut state = self.clone();
-
-        while let Some(&[a, b, c, d, e, f, g, h]) = take_first_chunk(&mut bytes) {
-            state.add(usize::from_ne_bytes([
-                normalized(a).unwrap(),
-                normalized(b).unwrap(),
-                normalized(c).unwrap(),
-                normalized(d).unwrap(),
-                normalized(e).unwrap(),
-                normalized(f).unwrap(),
-                normalized(g).unwrap(),
-                normalized(h).unwrap(),
-            ]));
-        }
-        if let Some(&[a, b, c, d]) = take_first_chunk(&mut bytes) {
-            state.add(u32::from_ne_bytes([
-                normalized(a).unwrap(),
-                normalized(b).unwrap(),
-                normalized(c).unwrap(),
-                normalized(d).unwrap(),
-            ]) as usize);
-        }
-        if let Some(&[a, b]) = take_first_chunk(&mut bytes) {
-            state.add(u16::from_ne_bytes([
-                normalized(a).unwrap(),
-                normalized(b).unwrap(),
-            ]) as usize);
-        }
-        if let Some(&[a]) = take_first_chunk(&mut bytes) {
-            state.add(normalized(a).unwrap() as usize);
-        }
-
-        *self = state;
-    }
-
-    #[inline(always)]
-    fn finish(&self) -> u64 {
-        self.hash as _
-    }
-}
-
-#[inline(always)]
-pub(crate) fn normalized_hash(bytes: &[u8]) -> Result<usize, InvalidHeader> {
-    let mut h = HeaderHasher::default();
-    h.write(bytes);
-    Ok(h.hash)
-}
-
-pub(crate) const fn const_normalized_hash(mut bytes: &[u8]) -> Result<usize, InvalidHeader> {
-    let mut hash: usize = 0;
-
-    while let Some((&[a, b, c, d, e, f, g, h], rest)) = bytes.split_first_chunk() {
-        hash = const_next_hash(hash, usize::from_ne_bytes([
-            match normalized(a) {Ok(a) => a, Err(err) => return Err(err)},
-            match normalized(b) {Ok(b) => b, Err(err) => return Err(err)},
-            match normalized(c) {Ok(c) => c, Err(err) => return Err(err)},
-            match normalized(d) {Ok(d) => d, Err(err) => return Err(err)},
-            match normalized(e) {Ok(e) => e, Err(err) => return Err(err)},
-            match normalized(f) {Ok(f) => f, Err(err) => return Err(err)},
-            match normalized(g) {Ok(g) => g, Err(err) => return Err(err)},
-            match normalized(h) {Ok(h) => h, Err(err) => return Err(err)},
-        ]));
-        bytes = rest
-    }
-    if let Some((&[a, b, c, d], rest)) = bytes.split_first_chunk() {
-        hash = const_next_hash(hash, u32::from_ne_bytes([
-            match normalized(a) {Ok(a) => a, Err(err) => return Err(err)},
-            match normalized(b) {Ok(b) => b, Err(err) => return Err(err)},
-            match normalized(c) {Ok(c) => c, Err(err) => return Err(err)},
-            match normalized(d) {Ok(d) => d, Err(err) => return Err(err)},
-        ]) as usize);
-        bytes = rest
-    }
-    if let Some((&[a, b], rest)) = bytes.split_first_chunk() {
-        hash = const_next_hash(hash, u16::from_ne_bytes([
-            match normalized(a) {Ok(a) => a, Err(err) => return Err(err)},
-            match normalized(b) {Ok(b) => b, Err(err) => return Err(err)},
-        ]) as usize);
-        bytes = rest
-    }
-    if let Some((&[a], _)) = bytes.split_first_chunk() {
-        hash = const_next_hash(hash, match normalized(a) {Ok(a) => a, Err(err) => return Err(err)} as usize);
-    }
-
-    Ok(hash)
-}
-
-const fn const_next_hash(current: usize, word: usize) -> usize {
-    let mut hash = current.rotate_left(5);
-    hash = const_xor(hash, word);
-    hash.wrapping_mul(K)
-}
-
-const fn const_xor(a: usize, b: usize) -> usize {
-    const fn byte_xor(a: u8, b: u8) -> u8 {
-        let mut result = 0;
-        if (a & 0b1) != (b & 0b1) {result += 0b1}
-        if (a & 0b10) != (b & 0b10) {result += 0b10}
-        if (a & 0b100) != (b & 0b100) {result += 0b100}
-        if (a & 0b1000) != (b & 0b1000) {result += 0b1000}
-        if (a & 0b10000) != (b & 0b10000) {result += 0b10000}
-        if (a & 0b100000) != (b & 0b100000) {result += 0b100000}
-        if (a & 0b1000000) != (b & 0b1000000) {result += 0b1000000}
-        if (a & 0b10000000) != (b & 0b10000000) {result += 0b10000000}
-        result
-    }
-
-    let mut bytes = a.to_ne_bytes();
-    let b_bytes = b.to_ne_bytes();
-    let mut i = 0;
-    while i < std::mem::size_of::<usize>() {
-        bytes[i] = byte_xor(bytes[i], b_bytes[i]);
-        i += 1
-    }
-    usize::from_ne_bytes(bytes)
-}
+// pub(crate) const fn normalized_hash(bytes: &[u8]) -> Result<u64, InvalidHeader> {
+//     
+// }
 
 #[cfg(test)]
-#[test]
-fn test_xor() {
-    for (a, b, expected) in CASES {
-        assert_eq!(const_xor(*a, *b), *expected)
+pub fn original_hash_bytes(bytes: &[u8]) -> u64 {
+    let len = bytes.len();
+    let mut s0 = SEED1;
+    let mut s1 = SEED2;
+
+    if len <= 16 {
+        // XOR the input into s0, s1.
+        if len >= 8 {
+            s0 ^= u64::from_le_bytes(bytes[0..8].try_into().unwrap());
+            s1 ^= u64::from_le_bytes(bytes[len - 8..].try_into().unwrap());
+        } else if len >= 4 {
+            s0 ^= u32::from_le_bytes(bytes[0..4].try_into().unwrap()) as u64;
+            s1 ^= u32::from_le_bytes(bytes[len - 4..].try_into().unwrap()) as u64;
+        } else if len > 0 {
+            let lo = bytes[0];
+            let mid = bytes[len / 2];
+            let hi = bytes[len - 1];
+            s0 ^= lo as u64;
+            s1 ^= ((hi as u64) << 8) | mid as u64;
+        }
+    } else {
+        // Handle bulk (can partially overlap with suffix).
+        let mut off = 0;
+        while off < len - 16 {
+            let x = u64::from_le_bytes(bytes[off..off + 8].try_into().unwrap());
+            let y = u64::from_le_bytes(bytes[off + 8..off + 16].try_into().unwrap());
+
+            // Replace s1 with a mix of s0, x, and y, and s0 with s1.
+            // This ensures the compiler can unroll this loop into two
+            // independent streams, one operating on s0, the other on s1.
+            //
+            // Since zeroes are a common input we prevent an immediate trivial
+            // collapse of the hash function by XOR'ing a constant with y.
+            let t = multiply_mix(s0 ^ x, PREVENT_TRIVIAL_ZERO_COLLAPSE ^ y);
+            s0 = s1;
+            s1 = t;
+            off += 16;
+        }
+
+        let suffix = &bytes[len - 16..];
+        s0 ^= u64::from_le_bytes(suffix[0..8].try_into().unwrap());
+        s1 ^= u64::from_le_bytes(suffix[8..16].try_into().unwrap());
     }
 
-    const CASES: &'static [(usize, usize, usize)] = &[
-        (12, 23, 27),
-        (23, 34, 53),
-        (34, 45, 15),
-        (45, 56, 21),
-        (56, 67, 123),
-        (67, 78, 13),
-        (78, 89, 23),
-        (89, 90, 3),
-    ];
+    multiply_mix(s0, s1) ^ (len as u64)
 }
 
+#[inline]
+pub(crate) const fn normalized_hash(bytes: &[u8]) -> Result<u64, InvalidHeader> {
+    macro_rules! r#try {
+        ($result:expr) => {
+            match $result {
+                Ok(ok) => ok,
+                Err(e) => return Err(e)
+            }
+        };
+    }
+
+    #[inline(always)]
+    const unsafe fn normalized_array_from_slice_and_start<const N: usize>(
+        slice: &[u8],
+        start: usize
+    ) -> Result<[u8; N], InvalidHeader> {
+        use std::mem::MaybeUninit;
+
+        #[cfg(debug_assertions)] {
+            if slice.len() - start < N {panic!("invalid slice len and start")}
+        }
+        
+        let mut a = [const {MaybeUninit::uninit()}; N];
+        let mut i = 0;
+        while i < N {
+            a[i] = MaybeUninit::new(r#try!(normalized(slice[start + i])));
+            i += 1
+        }
+
+        let ptr = &a as *const [MaybeUninit<u8>; N] as *const [u8; N];
+        Ok(unsafe {*ptr})
+    }
+
+    //////////////////////////////////////////////////////////////////////////////////////////
+
+    let len = bytes.len();
+    let mut s0 = SEED1;
+    let mut s1 = SEED2;
+
+    // SAFETY: len checks
+
+    if len <= 16 {
+        // XOR the input into s0, s1.
+        if len >= 8 {
+            s0 ^= u64::from_le_bytes(r#try!(unsafe {normalized_array_from_slice_and_start(bytes, 0)}));
+            s1 ^= u64::from_le_bytes(r#try!(unsafe {normalized_array_from_slice_and_start(bytes, len - 8)}));
+        } else if len >= 4 {
+            s0 ^= u32::from_le_bytes(r#try!(unsafe {normalized_array_from_slice_and_start(bytes, 0)})) as u64;
+            s1 ^= u32::from_le_bytes(r#try!(unsafe {normalized_array_from_slice_and_start(bytes, len - 4)})) as u64;
+        } else if len > 0 {
+            let lo = bytes[0];
+            let mid = bytes[len / 2];
+            let hi = bytes[len - 1];
+            s0 ^= lo as u64;
+            s1 ^= ((hi as u64) << 8) | mid as u64;
+        }
+    } else {
+        // Handle bulk (can partially overlap with suffix).
+        let mut off = 0;
+        while off < len - 16 {
+            let x = u64::from_le_bytes(r#try!(unsafe {normalized_array_from_slice_and_start(bytes, off)}));
+            let y = u64::from_le_bytes(r#try!(unsafe {normalized_array_from_slice_and_start(bytes, off + 8)}));
+
+            // Replace s1 with a mix of s0, x, and y, and s0 with s1.
+            // This ensures the compiler can unroll this loop into two
+            // independent streams, one operating on s0, the other on s1.
+            //
+            // Since zeroes are a common input we prevent an immediate trivial
+            // collapse of the hash function by XOR'ing a constant with y.
+            let t = multiply_mix(s0 ^ x, PREVENT_TRIVIAL_ZERO_COLLAPSE ^ y);
+            s0 = s1;
+            s1 = t;
+            off += 16;
+        }
+
+        s0 ^= u64::from_le_bytes(r#try!(unsafe {normalized_array_from_slice_and_start(bytes, len - 16)}));
+        s1 ^= u64::from_le_bytes(r#try!(unsafe {normalized_array_from_slice_and_start(bytes, len - 8)}));
+    }
+
+    Ok(multiply_mix(s0, s1) ^ (len as u64))
+}
