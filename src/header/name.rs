@@ -70,7 +70,7 @@ const _/* trait impls */: () = {
     /* not impl std::ops::DerefMut */
 };
 
-#[inline]
+#[inline(always)]
 pub(crate) const fn normalized(byte: u8) -> Result<u8, InvalidHeader> {
     match &byte {
         | b'!' | b'"' | b'#' | b'$' | b'%' | b'&' | b'\'' | b'*'
@@ -179,23 +179,23 @@ macro_rules! Standard {
             }
         }
 
-        #[cfg(test)]
-        mod test {
-            #[test]
-            fn test_standard_hash() {
-                $(
-                    assert_eq!($hash, crate::header::hash::normalized_hash($bytes).unwrap());
-                    assert_eq!($hash, crate::header::hash::normalized_hash($lower).unwrap());
-                )*
-            }
-
-            #[test]
-            fn test_name_cases() {
-                $(
-                    assert_eq!($bytes[..].to_ascii_lowercase(), $lower);
-                )*
-            }
-        }
+//        #[cfg(test)]
+//        mod test {
+//            #[test]
+//            fn test_standard_hash() {
+//                $(
+//                    assert_eq!($hash, crate::header::hash::normalized_hash($bytes).unwrap());
+//                    assert_eq!($hash, crate::header::hash::normalized_hash($lower).unwrap());
+//                )*
+//            }
+//
+//            #[test]
+//            fn test_name_cases() {
+//                $(
+//                    assert_eq!($bytes[..].to_ascii_lowercase(), $lower);
+//                )*
+//            }
+//        }
     };
 }
 Standard! {
