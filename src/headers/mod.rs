@@ -14,10 +14,8 @@ pub struct Headers {
 const _/* trait impls */: () = {
     impl std::fmt::Debug for Headers {
         fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-            // SAFETY: `self.table` outlives `table_iter`
-            let table_iter = unsafe {self.table.iter()};
             f.debug_map()
-                .entries(table_iter.map(|bucket| unsafe {bucket.as_ref()}.clone()))
+                .entries(self.iter())
                 .finish()
         }
     }
@@ -54,9 +52,12 @@ const fn eq_to(header: &Header) -> impl Fn(&(Header, Value)) -> bool + '_ {
 }
 
 impl Headers {
-    pub fn new() -> Self {
-        // 8 is elected heuristically
-        Self { table: RawTable::with_capacity(8) }
+    pub const fn new() -> Self {
+        Self { table: RawTable::new() }
+    }
+
+    pub fn with_capacity(capacity: usize) -> Self {
+        Self { table: RawTable::with_capacity(capacity) }
     }
 
     #[inline]
@@ -103,4 +104,27 @@ impl Headers {
     pub fn clear(&mut self) {
         self.table.clear()
     }
+
+    #[inline]
+    pub fn set(&mut self, header: Header, setter: impl SetHeader) {
+        setter.set(header, self);
+    }
 }
+
+pub trait SetHeader {
+    fn set(self, header: Header, headers: &mut Headers);
+}
+const _: () = {
+    impl SetHeader for Option<()> {
+        #[inline]
+        fn set(self, header: Header, headers: &mut Headers) {
+            headers.remove(header)
+        }
+    }
+    impl<V: Into<Value>> SetHeader for V {
+        #[inline]
+        fn set(self, header: Header, headers: &mut Headers) {
+            headers.insert(header, self.into());
+        }
+    }
+};

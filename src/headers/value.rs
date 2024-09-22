@@ -54,11 +54,7 @@ const _/* trait impls */: () = {
 
         #[inline(always)]
         fn deref(&self) -> &Self::Target {
-            match &self.0 {
-                // SAFETY: `Value` constructors' SAFETY
-                Str::Ref(r) => unsafe {r.as_ref()},
-                Str::Own(o) => o.as_str()
-            }
+            &*self.0
         }
     }
 
@@ -90,14 +86,14 @@ const _/* trait impls */: () = {
         #[inline]
         fn from(s: &'static str) -> Self {
             if !valid(s.as_bytes()) {panic!("invalid header value")}
-            Self(Str::Ref(s.into()))
+            Self(Str::from(s))
         }
     }
     impl From<String> for Value {
         #[inline]
         fn from(s: String) -> Self {
             if !valid(s.as_bytes()) {panic!("invalid header value")}
-            Self(Str::Own(s))
+            Self(Str::from(s))
         }
     }
     impl From<std::borrow::Cow<'static, str>> for Value {
@@ -108,13 +104,23 @@ const _/* trait impls */: () = {
             }
         }
     }
+
+    impl From<usize> for Value {
+        fn from(n: usize) -> Self {
+            Self(match n {
+                0 => Str::from_static("0"),
+                ..=255 => Str::from(u8::to_string(&(n as u8))),
+                _ => Str::from(usize::to_string(&n))
+            })
+        }
+    }
 };
 
 impl Value {
     pub const fn new(value: &'static str) -> Self {
         if !const_valid(value.as_bytes()) {panic!("invalid header value")}
         // SAFETY: 'static reference is always valid
-        Self(Str::Ref(unsafe {NonNull::new_unchecked(value as *const str as *mut str)}))
+        Self(unsafe {Str::unchecked_ref(value)})
     }
 }
 
@@ -126,25 +132,14 @@ impl Value {
             // SAFETY: `valid(bytes)` returned true
             let bytes = unsafe {std::str::from_utf8_unchecked(bytes)};
             // SAFETY: function SAFETY
-            Ok(Self(Str::Ref(unsafe {NonNull::new_unchecked(bytes as *const str as *mut str)})))
+            Ok(Self(Str::unchecked_ref(bytes)))
         } else {
             Err(InvalidValue)
         }
     }
 
-    pub(crate) fn append(&mut self, another: Value) {
-        match &mut self.0 {
-            Str::Own(s) => {
-                s.push(',');
-                s.push_str(&another);
-            }
-            Str::Ref(s) => {
-                // SAFETY: `Value` constructors' SAFETY
-                let mut s = String::from(unsafe {s.as_ref()});
-                s.push(',');
-                s.push_str(&another);
-                self.0 = Str::Own(s)
-            }
-        }
+    pub(crate) fn append(&mut self, other: Value) {
+        self.0.push(b',');
+        self.0.extend(other.0);
     }
 }

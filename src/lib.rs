@@ -1,9 +1,9 @@
-mod str;
 mod headers;
 mod request;
 mod response;
 
-use str::Str;
+mod unsafe_cow;
+use unsafe_cow::{Bytes, Str};
 
 pub use headers::{Header, Headers};
 pub mod header {pub use crate::headers::standard::*;}
