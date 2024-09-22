@@ -1,5 +1,4 @@
 use crate::Str;
-use std::ptr::NonNull;
 
 /// HTTP header value.
 /// 
@@ -122,12 +121,10 @@ impl Value {
         // SAFETY: 'static reference is always valid
         Self(unsafe {Str::unchecked_ref(value)})
     }
-}
 
-impl Value {
     /// SAFETY: `bytes` is valid reference whenever returned `Value` can be accessed
     #[inline]
-    pub(crate) unsafe fn parse(bytes: &[u8]) -> Result<Self, InvalidValue> {
+    pub unsafe fn parse(bytes: &[u8]) -> Result<Self, InvalidValue> {
         if valid(bytes) {
             // SAFETY: `valid(bytes)` returned true
             let bytes = unsafe {std::str::from_utf8_unchecked(bytes)};
@@ -137,7 +134,9 @@ impl Value {
             Err(InvalidValue)
         }
     }
+}
 
+impl Value {
     pub(crate) fn append(&mut self, other: Value) {
         self.0.push(b',');
         self.0.extend(other.0);

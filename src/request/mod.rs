@@ -55,28 +55,34 @@ impl Request {
 }
 
 impl Request {
+    #[inline]
     pub fn append(&mut self, header: Header, value: impl Into<Value>) {
         self.headers.append(header, value);
     }
 
+    #[inline]
     pub fn set(&mut self, header: Header, setter: impl SetHeader) {
         self.headers.set(header, setter);
     }
 
+    #[inline]
     pub fn set_method(&mut self, method: Method) {
         self.method = method;
     }
 
+    #[inline]
     /// SAFETY: `path` is owned type or reference valid whenever it can be accessed
     pub unsafe fn set_path(&mut self, path: impl IntoStr) {
         self.path = path.into_str();
     }
 
+    #[inline]
     /// SAFETY: `path` is owned type or reference valid whenever it can be accessed
     pub unsafe fn set_query(&mut self, query: impl IntoStr) {
         self.query = Some(query.into_str());
     }
 
+    #[inline]
     /// SAFETY: `body` is owned type or reference valid whenever it can be accessed
     pub unsafe fn set_body(&mut self, body: impl IntoBytes) {
         self.body = Some(body.into_bytes());

@@ -5,7 +5,7 @@ enum UnsafeCow {
 }
 
 #[derive(Clone)]
-pub(crate) struct Bytes(UnsafeCow);
+pub struct Bytes(UnsafeCow);
 const _: () = {
     impl Bytes {
         /// SAFETY: `s` is valid reference whenever returned `Str` can be accessed
@@ -20,34 +20,6 @@ const _: () = {
             match &self.0 {
                 UnsafeCow::Ref(r) => unsafe {r.as_ref()},
                 UnsafeCow::Own(o) => o.as_slice()
-            }
-        }
-
-        #[inline]
-        pub(crate) fn push(&mut self, byte: u8) {
-            #[cfg(debug_assertions)] {
-                assert!(byte.is_ascii(), "`Str::push` got `{byte}`: not ascii")
-            }
-
-            match &mut self.0 {
-                UnsafeCow::Own(o) => o.push(byte),
-                UnsafeCow::Ref(r) => {
-                    let mut new = Vec::from(unsafe {r.as_ref()});
-                    new.push(byte);
-                    self.0 = UnsafeCow::Own(new)
-                }
-            }
-        }
-
-        #[inline]
-        pub(crate) fn extend(&mut self, other: Self) {
-            match &mut self.0 {
-                UnsafeCow::Own(o) => o.extend_from_slice(other.as_bytes()),
-                UnsafeCow::Ref(r) => {
-                    let mut new = Vec::from(unsafe {r.as_ref()});
-                    new.extend_from_slice(other.as_bytes());
-                    self.0 = UnsafeCow::Own(new)
-                }
             }
         }
     }
@@ -108,7 +80,7 @@ const _: () = {
 };
 
 #[derive(Clone)]
-pub(crate) struct Str(UnsafeCow);
+pub struct Str(UnsafeCow);
 const _: () = {
     impl Str {
         /// SAFETY: `s` is valid reference whenever returned `Str` can be accessed

@@ -1,30 +1,47 @@
 use super::{Request, Method};
-use crate::header::{ContentLength, ContentType};
-use crate::headers::{Header, Headers, Value};
+use crate::header::ContentLength;
+use crate::headers::{Header, Headers};
 use crate::unsafe_cow::Str;
 use ::std::borrow::Cow;
 use ::percent_encoding::{utf8_percent_encode, NON_ALPHANUMERIC};
+
+pub trait BuildRequest {
+    fn build(self, req: Request) -> Request;
+}
+const _: () = {
+    impl BuildRequest for () {
+        fn build(self, req: Request) -> Request {
+            req
+        }
+    }
+
+    impl<F: FnOnce(RequestBuilder)->RequestBuilder> BuildRequest for F {
+        fn build(self, req: Request) -> Request {
+            self(RequestBuilder(req)).0
+        }
+    }
+};
 
 pub struct RequestBuilder(Request);
 
 macro_rules! builder {
     ($( $method:ident )*) => {
-        #[cfg(debug_assertions)]
-        fn assert_exhausted(m: Method) {
+        #[cfg(test)]
+        fn __assert_exhausted__(m: Method) {
             match m {$(Method::$method => (),)*}
         }
 
         impl Request {$(
             #[allow(non_snake_case)]
-            pub fn $method(path: impl Into<Cow<'static, str>>) -> Self {
-                Request {
+            pub fn $method(path: impl Into<Cow<'static, str>>, builder: impl BuildRequest) -> Self {
+                builder.build(Request {
                     __buf__: None,
                     method:  Method::$method,
                     path:    Str::from(path.into()),
                     query:   None,
                     headers: Headers::new(),
                     body:    None,
-                }
+                })
             }
         )*}
     };
@@ -58,9 +75,8 @@ impl RequestBuilder {
         self
     }
 
-    pub fn body(mut self, content_type: &'static str, body: impl Into<Cow<'static, [u8]>>) -> Self {
+    pub fn body(mut self, body: impl Into<Cow<'static, [u8]>>) -> Self {
         let body: Cow<'static, [u8]> = body.into();
-        self.0.set(ContentType, content_type);
         self.0.set(ContentLength, body.len());
         unsafe {self.0.set_body(body)}
         self

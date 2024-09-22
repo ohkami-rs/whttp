@@ -116,7 +116,7 @@ impl Header {
     /// 
     /// SAFETY: `name` is valid reference whenever the return value can be accessed
     #[inline(always)]
-    pub(crate) unsafe fn parse_mainly_standard(name: &[u8]) -> Result<Self, InvalidHeader> {
+    pub unsafe fn parse_mainly_standard(name: &[u8]) -> Result<Self, InvalidHeader> {
         match Standard::from_bytes(name) {
             Some(s) => Ok(Header {
                 // SAFETY: function SAFETY
@@ -131,7 +131,7 @@ impl Header {
     /// 
     /// SAFETY: `name` is valid reference whenever returned `Header` can be accessed
     #[inline(always)]
-    pub(crate) unsafe fn parse(name: &[u8]) -> Result<Self, InvalidHeader> {
+    pub unsafe fn parse(name: &[u8]) -> Result<Self, InvalidHeader> {
         let hash = normalized_hash(name)?;
 
         // SAFETY: `normalized_hash` succeed
