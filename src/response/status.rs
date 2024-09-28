@@ -1,5 +1,7 @@
 macro_rules! Status {
     ($($code:literal $name:ident: $message:literal,)*) => {
+        #[derive(Clone, Copy)]
+        #[allow(non_camel_case_types)]
         pub enum Status {
             $( $name ),*
         }

@@ -15,3 +15,13 @@ categories    = ["web-programming"]
 [dependencies]
 hashbrown        = { version = "0.14", features = ["raw", "inline-more"] }
 percent-encoding = { version = "2.3" }
+unsaferef        = { version = "0.1" }
+futures-core     = { optional = true, version = "0.3" }
+sha1             = { optional = true, version = "0.10", default-features = false }
+
+[features]
+sse = ["dep:futures-core"]
+ws  = ["dep:sha1"]
+
+### DEBUG ###
+default = ["sse", "ws"]

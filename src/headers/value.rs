@@ -1,4 +1,4 @@
-use crate::Str;
+use crate::bytes::{Str, IntoStr};
 
 /// HTTP header value.
 /// 
@@ -85,14 +85,14 @@ const _/* trait impls */: () = {
         #[inline]
         fn from(s: &'static str) -> Self {
             if !valid(s.as_bytes()) {panic!("invalid header value")}
-            Self(Str::from(s))
+            Self(unsafe {s.into_str()})
         }
     }
     impl From<String> for Value {
         #[inline]
         fn from(s: String) -> Self {
             if !valid(s.as_bytes()) {panic!("invalid header value")}
-            Self(Str::from(s))
+            Self(unsafe {s.into_str()})
         }
     }
     impl From<std::borrow::Cow<'static, str>> for Value {
@@ -106,11 +106,11 @@ const _/* trait impls */: () = {
 
     impl From<usize> for Value {
         fn from(n: usize) -> Self {
-            Self(match n {
-                0 => Str::from_static("0"),
-                ..=255 => Str::from(u8::to_string(&(n as u8))),
-                _ => Str::from(usize::to_string(&n))
-            })
+            Self(unsafe {match n {
+                0 => "0".into_str(),
+                ..=255 => u8::to_string(&(n as u8)).into_str(),
+                _ => usize::to_string(&n).into_str()
+            }})
         }
     }
 };
@@ -119,7 +119,7 @@ impl Value {
     pub const fn new(value: &'static str) -> Self {
         if !const_valid(value.as_bytes()) {panic!("invalid header value")}
         // SAFETY: 'static reference is always valid
-        Self(unsafe {Str::unchecked_ref(value)})
+        Self(unsafe {Str::Ref(::unsaferef::UnsafeRef::new(value))})
     }
 
     /// SAFETY: `bytes` is valid reference whenever returned `Value` can be accessed
@@ -129,7 +129,7 @@ impl Value {
             // SAFETY: `valid(bytes)` returned true
             let bytes = unsafe {std::str::from_utf8_unchecked(bytes)};
             // SAFETY: function SAFETY
-            Ok(Self(Str::unchecked_ref(bytes)))
+            Ok(Self(Str::Ref(::unsaferef::UnsafeRef::new(bytes))))
         } else {
             Err(InvalidValue)
         }
@@ -138,7 +138,9 @@ impl Value {
 
 impl Value {
     pub(crate) fn append(&mut self, other: Value) {
-        self.0.push(b',');
-        self.0.extend(other.0);
+        let v = self.0.to_mut(); {
+            v.push(',');
+            v.push_str(&other.0);
+        }
     }
 }

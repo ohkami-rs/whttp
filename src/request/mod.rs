@@ -1,10 +1,9 @@
 mod method;
-mod builder;
 
 pub use method::Method;
 
 use crate::headers::{Header, Headers, SetHeader, Value};
-use crate::unsafe_cow::{Bytes, IntoBytes, IntoStr, Str};
+use crate::bytes::{Bytes, IntoBytes, IntoStr, Str};
 use ::percent_encoding::percent_decode_str;
 
 const BUF_SIZE: usize = 1024;
@@ -24,7 +23,7 @@ impl Request {
     }
 
     pub fn path(&self) -> &str {
-        self.path.as_str()
+        &self.path
     }
 
     pub fn query(&self) -> Option<std::borrow::Cow<str>> {
@@ -48,7 +47,7 @@ impl Request {
 
     pub fn body(&self) -> Option<&[u8]> {
         match &self.body {
-            Some(b) => Some(b.as_bytes()),
+            Some(b) => Some(&b),
             None => None
         }
     }
@@ -94,7 +93,7 @@ impl Request {
         Self {
             __buf__: Some(Box::new([0; BUF_SIZE])),
             method:  Method::GET,
-            path:    Str::from_static("/"),
+            path:    Str::Ref(unsafe {::unsaferef::UnsafeRef::new("/")}),
             query:   None,
             headers: Headers::with_capacity(8),
             body:    None,
