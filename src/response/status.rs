@@ -6,6 +6,14 @@ macro_rules! Status {
             $( $name ),*
         }
 
+        #[allow(non_snake_case)]
+        impl super::Response {$(
+            #[inline]
+            pub fn $name() -> Self {
+                Self::of(Status::$name)
+            }
+        )*}
+
         impl Status {
             pub const fn code(&self) -> u16 {
                 match self {

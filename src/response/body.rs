@@ -1,12 +1,13 @@
-use ::std::pin::Pin;
-use ::unsaferef::UnsafeCow;
+use ::std::{borrow::Cow, pin::Pin};
+
+#[cfg(feature="sse")]
 use ::futures_core::Stream;
 
 pub enum Body {
-    Payload(UnsafeCow<[u8]>),
+    Payload(Cow<'static, [u8]>),
 
     #[cfg(feature="sse")]
-    Stream(Pin<Box<dyn Stream<Item = Result<String, String>> + Send>>),
+    Stream(Pin<Box<dyn Stream<Item = String> + Send>>),
 
     #[cfg(feature="ws")]
     WebSocket(()),

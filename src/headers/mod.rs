@@ -78,17 +78,18 @@ impl Headers {
     }
 
     #[inline]
-    pub fn append(&mut self, header: Header, value: impl Into<Value>) {
+    pub fn remove(&mut self, header: Header) {
+        self.table.remove_entry(header.hash, eq_to(&header));
+    }
+
+    #[inline]
+    pub fn append(&mut self, header: Header, value: impl Into<Value>) -> &mut Self {
         let value = value.into();
         match self.table.find_or_find_insert_slot(header.hash as u64, eq_to(&header), hasher) {
             Err(slot)  => unsafe {self.table.insert_in_slot(header.hash, slot, (header, value));}
             Ok(bucket) => unsafe {bucket.as_mut().1.append(value)}
-        }
-    }
-
-    #[inline]
-    pub fn remove(&mut self, header: Header) {
-        self.table.remove_entry(header.hash, eq_to(&header));
+        };
+        self
     }
 
     #[inline]
@@ -106,8 +107,9 @@ impl Headers {
     }
 
     #[inline]
-    pub fn set(&mut self, header: Header, setter: impl SetHeader) {
+    pub fn set(&mut self, header: Header, setter: impl SetHeader) -> &mut Self {
         setter.set(header, self);
+        self
     }
 }
 
