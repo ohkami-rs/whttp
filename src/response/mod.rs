@@ -9,7 +9,7 @@ pub use body::Body;
 
 use crate::headers::{Header, Headers, SetHeader, Value};
 use crate::header::{ContentLength, ContentType};
-use ::std::{borrow::Cow, pin::Pin};
+use ::std::borrow::Cow;
 use ::serde::Serialize;
 
 #[cfg(feature="sse")]

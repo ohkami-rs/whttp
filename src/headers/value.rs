@@ -85,14 +85,14 @@ const _/* trait impls */: () = {
         #[inline]
         fn from(s: &'static str) -> Self {
             if !valid(s.as_bytes()) {panic!("invalid header value")}
-            Self(unsafe {s.into_str()})
+            Self(s.into_str())
         }
     }
     impl From<String> for Value {
         #[inline]
         fn from(s: String) -> Self {
             if !valid(s.as_bytes()) {panic!("invalid header value")}
-            Self(unsafe {s.into_str()})
+            Self(s.into_str())
         }
     }
     impl From<std::borrow::Cow<'static, str>> for Value {
@@ -106,11 +106,11 @@ const _/* trait impls */: () = {
 
     impl From<usize> for Value {
         fn from(n: usize) -> Self {
-            Self(unsafe {match n {
+            Self(match n {
                 0 => "0".into_str(),
                 ..=255 => u8::to_string(&(n as u8)).into_str(),
                 _ => usize::to_string(&n).into_str()
-            }})
+            })
         }
     }
 };
