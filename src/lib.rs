@@ -1,10 +1,10 @@
 mod bytes;
 
 mod headers;
-mod request;
-mod response;
+pub mod request;
+pub mod response;
 
 pub mod header {pub use crate::headers::standard::*;}
-pub use headers::{Header, Headers};
+pub use headers::{Header, Value, Headers};
 pub use request::{Method, Request};
 pub use response::{Status, Response};

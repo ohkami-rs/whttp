@@ -4,7 +4,6 @@ pub use method::Method;
 
 use crate::headers::{Header, Headers, SetHeader, Value};
 use crate::bytes::{Bytes, IntoBytes, IntoStr, Str};
-use crate::Response;
 use ::unsaferef::UnsafeRef;
 use ::percent_encoding::percent_decode;
 
@@ -94,8 +93,14 @@ impl Request {
 }
 
 impl Request {
-    pub fn init_buf() -> Self {
-        Self {
+}
+
+pub mod parse {
+    use super::*;
+    use crate::Status;
+
+    pub fn new() -> Request {
+        Request {
             __buf__: Some(Box::new([0; BUF_SIZE])),
             method:  Method::GET,
             path:    Str::Ref(unsafe {UnsafeRef::new("/")}),
@@ -105,32 +110,32 @@ impl Request {
         }
     }
 
-    pub fn buf(&self) -> Option<&[u8; BUF_SIZE]> {
-        self.__buf__.as_deref()
+    pub fn buf(this: &Request) -> Option<&[u8; BUF_SIZE]> {
+        this.__buf__.as_deref()
     }
-    pub fn buf_mut(&mut self) -> &mut Box<[u8; BUF_SIZE]> {
-        if self.__buf__.is_none() {
-            self.__buf__ = Some(Box::new([0; BUF_SIZE]));
+    pub fn buf_mut(this: &mut Request) -> &mut Box<[u8; BUF_SIZE]> {
+        if this.__buf__.is_none() {
+            this.__buf__ = Some(Box::new([0; BUF_SIZE]));
         }
-        unsafe {self.__buf__.as_mut().unwrap_unchecked()}
+        unsafe {this.__buf__.as_mut().unwrap_unchecked()}
     }
 
     #[inline]
-    pub fn parse_method(this: &mut Self, bytes: &[u8]) -> Result<(), Response> {
+    pub fn method(this: &mut Request, bytes: &[u8]) -> Result<(), Status> {
         let method = Method::from_bytes(bytes)
-            .ok_or_else(|| Response::NotImplemented().with_text("custom method is not available"))?;
+            .ok_or(Status::NotImplemented)?;
         Ok(this.method = method)
     }
 
     #[inline]
     /// SAFETY: `bytes` must be alive as long as `path` of `this` is in use;
     /// especially, reading from `this.buf`
-    pub unsafe fn parse_path(this: &mut Self, bytes: &[u8]) -> Result<(), Response> {
+    pub unsafe fn path(this: &mut Request, bytes: &[u8]) -> Result<(), Status> {
         (bytes.len() > 0 && *bytes.get_unchecked(0) == b'/')
             .then_some(())
-            .ok_or_else(Response::BadRequest)?;
+            .ok_or(Status::BadRequest)?;
         let path = std::str::from_utf8(bytes)
-            .map_err(|_|Response::BadRequest())?;
+            .map_err(|_| Status::BadRequest)?;
         Ok(this.path = Str::Ref(UnsafeRef::new(path)))
     }
 
@@ -139,47 +144,38 @@ impl Request {
     /// 
     /// SAFETY: `bytes` must be alive as long as `query` of `this` is in use;
     /// especially, reading from `this.buf`
-    pub unsafe fn parse_query(this: &mut Self, bytes: &[u8]) {
+    pub unsafe fn query(this: &mut Request, bytes: &[u8]) {
         this.query = Some(Bytes::Ref(UnsafeRef::new(bytes)))
-    }
-
-    #[inline]
-    /// Parse bytes like `Header-Name: Value` as a pair of `Header`, `Value`, and
-    /// append into `this.headers`.
-    /// 
-    /// SAFETY: `bytes` must be alive as long as `headers` of `this` is in use;
-    /// especially, reading from `this.buf`
-    pub unsafe fn parse_header(this: &mut Self, mut bytes: &[u8]) -> Result<(), Response> {
-        let header = 'header: {
-            for i in 0..bytes.len() {
-                if *bytes.get_unchecked(i) == b':' {
-                    let (header_bytes, rest) = (
-                        bytes.get_unchecked(0..i),
-                        bytes.get_unchecked(i..)
-                    );
-                    bytes = rest;
-                    break 'header Some(Header::parse(header_bytes)
-                        .map_err(|e| Response::BadRequest().with_text(e.to_string()))?
-                    )
-                }
-            }; None
-        }.ok_or_else(Response::BadRequest)?;
-
-        let value = {
-            while let Some((b' ', rest)) = bytes.split_first() {
-                bytes = rest;
-            }
-            Value::parse(bytes)
-                .map_err(|e| Response::BadRequest().with_text(e.to_string()))?
-        };
-
-        Ok({this.headers.append(header, value);})
     }
 
     #[inline]
     /// SAFETY: `bytes` must be alive as long as `body` of `this` is in use;
     /// especially, reading from `this.buf`
-    pub unsafe fn parse_body(this: &mut Self, bytes: &[u8]) {
+    pub unsafe fn body(this: &mut Request, bytes: &[u8]) {
         this.body = Some(Bytes::Ref(UnsafeRef::new(bytes)))
     }
 }
+
+const _: () = {
+    impl PartialEq for Request {
+        fn eq(&self, other: &Request) -> bool {
+            self.method == other.method &&
+            self.path == other.path &&
+            self.query == other.query &&
+            self.headers == other.headers &&
+            self.body == other.body
+        }
+    }
+
+    impl std::fmt::Debug for Request {
+        fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+            f.debug_struct("Request")
+                .field("method", &self.method)
+                .field("path", &self.path)
+                .field("query", &self.query())
+                .field("body", &self.body)
+                .field("", &self.headers)
+                .finish()
+        }
+    }
+};

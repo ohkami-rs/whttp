@@ -1,13 +1,13 @@
 macro_rules! Status {
     ($($code:literal $name:ident: $message:literal,)*) => {
-        #[derive(Clone, Copy)]
+        #[derive(Clone, Copy, PartialEq)]
         #[allow(non_camel_case_types)]
         pub enum Status {
             $( $name ),*
         }
 
         #[allow(non_snake_case)]
-        impl super::Response {$(
+        impl<B: super::Body> super::Response<B> {$(
             #[inline]
             pub fn $name() -> Self {
                 Self::of(Status::$name)
@@ -93,4 +93,15 @@ Status! {
     508 LoopDetected                  : "508 Loop Detected",
     510 NotExtended                   : "510 Not Extended",
     511 NetworkAuthenticationRequired : "511 Network Authentication Required",
+}
+
+impl std::fmt::Debug for Status {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        std::fmt::Debug::fmt(self.message(), f)
+    }
+}
+impl std::fmt::Display for Status {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        std::fmt::Display::fmt(self.message(), f)
+    }
 }
