@@ -19,11 +19,10 @@ unsaferef        = { version = "0.1" }
 serde            = { version = "1.0" }
 serde_json       = { version = "1.0" }
 futures-core     = { optional = true, version = "0.3" }
-sha1             = { optional = true, version = "0.10", default-features = false }
 
 [features]
 sse     = ["dep:futures-core"]
-ws      = ["dep:sha1"]
+ws      = []
 
 ### DEBUG ###
-default = ["sse", "ws"]
+# default = ["sse", "ws"]

@@ -92,9 +92,6 @@ impl Request {
     }
 }
 
-impl Request {
-}
-
 pub mod parse {
     use super::*;
     use crate::Status;
