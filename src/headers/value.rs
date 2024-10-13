@@ -1,4 +1,4 @@
-use crate::bytes::{Str, IntoStr};
+use crate::util::{Str, IntoStr};
 
 /// HTTP header value.
 /// 

@@ -1,33 +1,26 @@
 mod status;
 pub use status::Status;
 
+mod body;
+pub use body::Body;
+
 use crate::headers::{Header, Headers, SetHeader, Value};
-use crate::header::{ContentLength, ContentType};
 use ::std::borrow::Cow;
 use ::serde::Serialize;
 
 #[cfg(feature="sse")]
 use ::futures_core::Stream;
 
-pub struct Response<B: Body> {
+#[cfg(feature="ws")]
+use ::mews::WebSocket;
+
+pub struct Response {
     status:  Status,
     headers: Headers,
-    body:    Option<B>,
+    body:    Option<Body>,
 }
 
-pub trait Body {
-    fn payload(payload: impl Into<Cow<'static, [u8]>>) -> Self;
-
-    #[cfg(feature="sse")]
-    fn stream(stream: impl Stream<Item = String> + Send + 'static) -> Self;
-
-    #[cfg(feature="ws")]
-    type WebSocket;
-    #[cfg(feature="ws")]
-    fn websocket(websocket: Self::WebSocket) -> Self;
-}
-
-impl<B: Body> Response<B> {
+impl Response {
     #[inline]
     pub fn of(status: Status) -> Self {
         Self {
@@ -38,7 +31,7 @@ impl<B: Body> Response<B> {
     }
 }
 
-impl<B: Body> Response<B> {
+impl Response {
     pub const fn status(&self) -> Status {
         self.status
     }
@@ -47,12 +40,12 @@ impl<B: Body> Response<B> {
         self.headers.get(header)
     }
 
-    pub const fn body(&self) -> Option<&B> {
+    pub const fn body(&self) -> Option<&Body> {
         self.body.as_ref()
     }
 }
 
-impl<B: Body> Response<B> {
+impl Response {
     #[inline]
     pub fn set(&mut self, header: Header, value: impl SetHeader) -> &mut Self {
         self.headers.set(header, value);
@@ -60,7 +53,7 @@ impl<B: Body> Response<B> {
     }
 
     #[inline]
-    pub fn append(mut self, header: Header, value: impl Into<Value>) -> Self {
+    pub fn append(&mut self, header: Header, value: impl Into<Value>) -> &mut Self {
         self.headers.append(header, value);
         self
     }
@@ -77,10 +70,12 @@ impl<B: Body> Response<B> {
         content_type: &'static str,
         payload: impl Into<Cow<'static, [u8]>>
     ) -> Self {
+        use crate::header::{ContentLength, ContentType};
+
         let payload: Cow<'static, [u8]> = payload.into();
         self.set(ContentType, content_type)
             .set(ContentLength, payload.len());
-        self.body = Some(Body::payload(payload));
+        self.body = Some(Body::Payload(payload));
         self
     }
 
@@ -113,28 +108,27 @@ impl<B: Body> Response<B> {
         mut self,
         stream: impl Stream<Item = String> + Send + 'static
     ) -> Self {
-        use crate::header::{CacheControl, TransferEncoding};
+        use crate::header::{ContentType, CacheControl, TransferEncoding};
 
-        self.headers
-            .set(ContentType, "text/event-stream")
+        self.set(ContentType, "text/event-stream")
             .set(CacheControl, "no-cache, must-revalidate")
             .set(TransferEncoding, "chunked");
-        self.body = Some(Body::stream(stream));
+        self.body = Some(Body::Stream(Box::pin(stream)));
         self
     }
 
     #[cfg(feature="ws")]
     pub fn with_websocket(
         mut self,
-        websocket: impl Into<B::WebSocket>
+        websocket: WebSocket
     ) -> Self {
-        self.body = Some(Body::websocket(websocket.into()));
+        self.body = Some(Body::WebSocket(websocket));
         self
     }
 }
 
 const _: () = {
-    impl<B: Body + PartialEq> PartialEq for Response<B> {
+    impl PartialEq for Response {
         fn eq(&self, other: &Self) -> bool {
             self.status == other.status &&
             self.headers == other.headers &&
@@ -142,7 +136,7 @@ const _: () = {
         }
     }
 
-    impl<B: Body + std::fmt::Debug> std::fmt::Debug for Response<B> {
+    impl std::fmt::Debug for Response {
         fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
             f.debug_struct("Response")
                 .field("status", &self.status)

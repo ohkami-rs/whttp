@@ -7,7 +7,7 @@ macro_rules! Status {
         }
 
         #[allow(non_snake_case)]
-        impl<B: super::Body> super::Response<B> {$(
+        impl super::Response {$(
             #[inline]
             pub fn $name() -> Self {
                 Self::of(Status::$name)

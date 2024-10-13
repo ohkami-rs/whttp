@@ -19,10 +19,21 @@ unsaferef        = { version = "0.1" }
 serde            = { version = "1.0" }
 serde_json       = { version = "1.0" }
 futures-core     = { optional = true, version = "0.3" }
+mews             = { optional = true, git = "https://github.com/ohkami-rs/mews" }
 
 [features]
-sse     = ["dep:futures-core"]
-ws      = []
+sse          = ["dep:futures-core"]
+ws_tokio     = ["ws", "rt_tokio"]
+ws_async-std = ["ws", "rt_async-std"]
+ws_smol      = ["ws", "rt_smol"]
+ws_glommio   = ["ws", "rt_glommio"]
+
+### INTERNAL ###
+ws           = ["dep:mews"]
+rt_tokio     = ["mews?/tokio"]
+rt_async-std = ["mews?/async-std"]
+rt_smol      = ["mews?/smol"]
+rt_glommio   = ["mews?/glommio"]
 
 ### DEBUG ###
-# default = ["sse", "ws"]
+default = ["sse", "ws_tokio"]

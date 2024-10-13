@@ -3,7 +3,7 @@ mod method;
 pub use method::Method;
 
 use crate::headers::{Header, Headers, SetHeader, Value};
-use crate::bytes::{Bytes, IntoBytes, IntoStr, Str};
+use crate::util::{Bytes, IntoBytes, IntoStr, Str};
 use ::unsaferef::UnsafeRef;
 use ::percent_encoding::percent_decode;
 
