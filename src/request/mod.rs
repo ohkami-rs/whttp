@@ -4,13 +4,15 @@ pub use method::Method;
 
 use crate::headers::{Header, Headers, SetHeader, Value};
 use crate::util::{Bytes, IntoBytes, IntoStr, Str};
+use ::std::{borrow::Cow, net::IpAddr};
 use ::unsaferef::UnsafeRef;
-use ::percent_encoding::percent_decode;
+use ::percent_encoding::{percent_decode, percent_encode, NON_ALPHANUMERIC};
 
 const BUF_SIZE: usize = 1024;
 
 pub struct Request {
     __buf__: Option<Box<[u8; BUF_SIZE]>>,
+    // ip:      IpAddr,
     method:  Method,
     path:    Str,
     query:   Option<Bytes>,
@@ -19,10 +21,80 @@ pub struct Request {
 }
 
 impl Request {
-    pub fn method(&self) -> Method {
+    #[inline]
+    pub fn of(method: Method, path: impl IntoStr) -> Self {
+        Self {
+            __buf__: None,
+            method,
+            path:    path.into_str(),
+            query:   None,
+            headers: Headers::with_capacity(4),
+            body:    None
+        }
+    }
+
+    #[inline]
+    pub fn with(mut self, header: &Header, value: impl Into<Value>) -> Self {
+        self.headers.insert(header, value);
+        self
+    }
+
+    pub fn with_query(mut self, key: impl IntoStr, value: impl IntoStr) -> Self {
+        let key = key.into_str();
+        let key = <Cow<str>>::from(percent_encode(key.as_bytes(), NON_ALPHANUMERIC));
+
+        let value = value.into_str();
+        let value = <Cow<str>>::from(percent_encode(value.as_bytes(), NON_ALPHANUMERIC));
+
+        match &mut self.query {
+            None => self.query = Some(Bytes::Own(
+                Vec::with_capacity(key.len() + 1 + value.len())
+            )),
+            Some(query) => {
+                let query = query.to_mut();
+                query.push(b'&');
+                query.reserve(key.len() + 1 + value.len());
+            }
+        }
+
+        let Some(Bytes::Own(query)) = &mut self.query else {unreachable!()};
+        query.extend_from_slice(key.as_bytes());
+        query.push(b'=');
+        query.extend_from_slice(value.as_bytes());
+
+        self
+    }
+
+    #[inline]
+    pub fn with_body(mut self, content_type: &'static str, body: impl IntoBytes) -> Self {
+        use crate::header::{ContentType, ContentLength};
+        let body = body.into_bytes();
+        self.set(ContentType, content_type)
+            .set(ContentLength, body.len());
+        self.body = Some(body);
+        self
+    }
+
+    pub fn with_text(self, text: impl Into<Cow<'static, str>>) -> Self {
+        self.with_body("text/plain; charset=UTF-8", match text.into() {
+            Cow::Borrowed(s) => Cow::Borrowed(s.as_bytes()),
+            Cow::Owned(s)    => Cow::Owned(s.into_bytes())
+        })
+    }
+
+    pub fn with_json(self, json: impl ::serde::Serialize) -> Self {
+        self.with_body("application/json",
+            ::serde_json::to_vec(&json).expect("failed to serialize")
+        )
+    }
+}
+
+impl Request {
+    pub const fn method(&self) -> Method {
         self.method
     }
 
+    #[inline]
     pub fn path(&self) -> &str {
         &self.path
     }
@@ -48,10 +120,12 @@ impl Request {
         }
     }
 
-    pub fn header(&self, header: Header) -> Option<&str> {
+    #[inline]
+    pub fn header(&self, header: &Header) -> Option<&str> {
         self.headers.get(header)
     }
 
+    #[inline]
     pub fn body(&self) -> Option<&[u8]> {
         match &self.body {
             Some(b) => Some(&b),
@@ -62,33 +136,39 @@ impl Request {
 
 impl Request {
     #[inline]
-    pub fn set(&mut self, header: Header, setter: impl SetHeader) {
+    pub fn set(&mut self, header: &Header, setter: impl SetHeader) -> &mut Self {
         self.headers.set(header, setter);
+        self
     }
 
     #[inline]
-    pub fn append(&mut self, header: Header, value: impl Into<Value>) {
+    pub fn append(&mut self, header: &Header, value: impl Into<Value>) -> &mut Self {
         self.headers.append(header, value);
+        self
     }
 
     #[inline]
-    pub fn set_method(&mut self, method: Method) {
+    pub fn set_method(&mut self, method: Method) -> &mut Self {
         self.method = method;
+        self
     }
 
     #[inline]
-    pub fn set_path(&mut self, path: impl IntoStr) {
+    pub fn set_path(&mut self, path: impl IntoStr) -> &mut Self {
         self.path = path.into_str();
+        self
     }
 
     #[inline]
-    pub fn set_query(&mut self, query: impl IntoBytes) {
+    pub fn set_query(&mut self, query: impl IntoBytes) -> &mut Self {
         self.query = Some(query.into_bytes());
+        self
     }
 
     #[inline]
-    pub fn set_body(&mut self, body: impl IntoBytes) {
+    pub fn set_body(&mut self, body: impl IntoBytes) -> &mut Self {
         self.body = Some(body.into_bytes());
+        self
     }
 }
 

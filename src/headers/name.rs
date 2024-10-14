@@ -22,7 +22,7 @@ use super::hash::normalized_hash;
 /// ```
 /// use whttp::Header;
 /// 
-/// const MY_CUSTOM: Header = Header::custom("My-Custom");
+/// const MY_CUSTOM: &Header = &Header::new("My-Custom");
 /// 
 /// todo!()
 /// ```
@@ -149,7 +149,7 @@ macro_rules! Standard {
             use super::*;
             $(
                 #[allow(non_upper_case_globals)]
-                pub const $name: Header = Header::new(unsafe {std::str::from_utf8_unchecked($bytes)});
+                pub const $name: &Header = &Header::new(unsafe {std::str::from_utf8_unchecked($bytes)});
             )*
         }
 
@@ -179,24 +179,6 @@ macro_rules! Standard {
                 }
             }
         }
-
-//        #[cfg(test)]
-//        mod test {
-//            #[test]
-//            fn test_standard_hash() {
-//                $(
-//                    assert_eq!($hash, crate::header::hash::normalized_hash($bytes).unwrap());
-//                    assert_eq!($hash, crate::header::hash::normalized_hash($lower).unwrap());
-//                )*
-//            }
-//
-//            #[test]
-//            fn test_name_cases() {
-//                $(
-//                    assert_eq!($bytes[..].to_ascii_lowercase(), $lower);
-//                )*
-//            }
-//        }
     };
 }
 Standard! {

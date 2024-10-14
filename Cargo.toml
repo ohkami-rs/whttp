@@ -8,16 +8,16 @@ homepage      = "https://crates.io/crates/whttp"
 repository    = "https://github.com/ohkami-rs/whttp"
 readme        = "README.md"
 license       = "MIT"
-description   = "A set of HTTP types"
+description   = "A new, opinionated implementation of HTTP types"
 keywords      = ["http"]
 categories    = ["web-programming"]
 
 [dependencies]
-hashbrown        = { version = "0.14", features = ["raw", "inline-more"] }
-percent-encoding = { version = "2.3" }
-unsaferef        = { version = "0.1" }
-serde            = { version = "1.0" }
-serde_json       = { version = "1.0" }
+hashbrown        = { version = "0.15" }
+percent-encoding = { version = "2.3"  }
+unsaferef        = { version = "0.1"  }
+serde            = { version = "1.0"  }
+serde_json       = { version = "1.0"  }
 futures-core     = { optional = true, version = "0.3" }
 mews             = { optional = true, git = "https://github.com/ohkami-rs/mews" }
 

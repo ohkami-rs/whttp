@@ -36,7 +36,7 @@ impl Response {
         self.status
     }
 
-    pub fn header(&self, header: Header) -> Option<&str> {
+    pub fn header(&self, header: &Header) -> Option<&str> {
         self.headers.get(header)
     }
 
@@ -47,19 +47,19 @@ impl Response {
 
 impl Response {
     #[inline]
-    pub fn set(&mut self, header: Header, value: impl SetHeader) -> &mut Self {
+    pub fn set(&mut self, header: &Header, value: impl SetHeader) -> &mut Self {
         self.headers.set(header, value);
         self
     }
 
     #[inline]
-    pub fn append(&mut self, header: Header, value: impl Into<Value>) -> &mut Self {
+    pub fn append(&mut self, header: &Header, value: impl Into<Value>) -> &mut Self {
         self.headers.append(header, value);
         self
     }
 
     #[inline(always)]
-    pub fn with(mut self, header: Header, value: impl Into<Value>) -> Self {
+    pub fn with(mut self, header: &Header, value: impl Into<Value>) -> Self {
         self.headers.insert(header, value);
         self
     }
