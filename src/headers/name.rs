@@ -111,7 +111,7 @@ impl Header {
 }
 
 impl Header {
-    /// Parse `name` to `Header` with better performance when
+    /// Parse HTTP/1.1 header name to `Header` with better performance when
     /// `name` is usually a name of standard header.
     /// 
     /// SAFETY: `name` is valid reference whenever the return value can be accessed
@@ -127,7 +127,7 @@ impl Header {
         }
     }
 
-    /// Parse `name` to `Header`.
+    /// Parse HTTP/1.1 header name to `Header`.
     /// 
     /// SAFETY: `name` is valid reference whenever returned `Header` can be accessed
     #[inline(always)]

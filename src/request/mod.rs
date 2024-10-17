@@ -10,9 +10,11 @@ use ::percent_encoding::{percent_decode, percent_encode, NON_ALPHANUMERIC};
 
 const BUF_SIZE: usize = 1024;
 
+// TODO: rethink the size of this struct taking CPU cacheline to consideration
+// (current: 136byte -> if remove some 8byte: 128byte)
 pub struct Request {
     __buf__: Option<Box<[u8; BUF_SIZE]>>,
-    // ip:      IpAddr,
+    ip:      Option<IpAddr>,
     method:  Method,
     path:    Str,
     query:   Option<Bytes>,
@@ -25,6 +27,7 @@ impl Request {
     pub fn of(method: Method, path: impl IntoStr) -> Self {
         Self {
             __buf__: None,
+            ip: None,
             method,
             path:    path.into_str(),
             query:   None,
@@ -90,6 +93,13 @@ impl Request {
 }
 
 impl Request {
+    pub const fn ip(&self) -> Option<&IpAddr> {
+        match &self.ip {
+            Some(ip) => Some(ip),
+            None => None
+        }
+    }
+
     pub const fn method(&self) -> Method {
         self.method
     }
@@ -175,10 +185,12 @@ impl Request {
 pub mod parse {
     use super::*;
     use crate::Status;
+    use std::pin::Pin;
 
-    pub fn new() -> Request {
+    pub fn new(ip: IpAddr) -> Request {
         Request {
             __buf__: Some(Box::new([0; BUF_SIZE])),
+            ip:      Some(ip),
             method:  Method::GET,
             path:    Str::Ref(unsafe {UnsafeRef::new("/")}),
             query:   None,
@@ -187,18 +199,16 @@ pub mod parse {
         }
     }
 
-    pub fn buf(this: &Request) -> Option<&[u8; BUF_SIZE]> {
-        this.__buf__.as_deref()
-    }
-    pub fn buf_mut(this: &mut Request) -> &mut Box<[u8; BUF_SIZE]> {
-        if this.__buf__.is_none() {
-            this.__buf__ = Some(Box::new([0; BUF_SIZE]));
+    pub fn buf(this: Pin<&mut Request>) -> &mut Box<[u8; BUF_SIZE]> {
+        let buf = &mut this.get_mut().__buf__;
+        if buf.is_none() {
+            *buf = Some(Box::new([0; BUF_SIZE]));
         }
-        unsafe {this.__buf__.as_mut().unwrap_unchecked()}
+        unsafe {buf.as_mut().unwrap_unchecked()}
     }
 
     #[inline]
-    pub fn method(this: &mut Request, bytes: &[u8]) -> Result<(), Status> {
+    pub fn method(mut this: Pin<&mut Request>, bytes: &[u8]) -> Result<(), Status> {
         let method = Method::from_bytes(bytes)
             .ok_or(Status::NotImplemented)?;
         Ok(this.method = method)
@@ -207,7 +217,7 @@ pub mod parse {
     #[inline]
     /// SAFETY: `bytes` must be alive as long as `path` of `this` is in use;
     /// especially, reading from `this.buf`
-    pub unsafe fn path(this: &mut Request, bytes: &[u8]) -> Result<(), Status> {
+    pub unsafe fn path(mut this: Pin<&mut Request>, bytes: &[u8]) -> Result<(), Status> {
         (bytes.len() > 0 && *bytes.get_unchecked(0) == b'/')
             .then_some(())
             .ok_or(Status::BadRequest)?;
@@ -221,14 +231,21 @@ pub mod parse {
     /// 
     /// SAFETY: `bytes` must be alive as long as `query` of `this` is in use;
     /// especially, reading from `this.buf`
-    pub unsafe fn query(this: &mut Request, bytes: &[u8]) {
+    pub unsafe fn query(mut this: Pin<&mut Request>, bytes: &[u8]) {
         this.query = Some(Bytes::Ref(UnsafeRef::new(bytes)))
+    }
+
+    #[inline]
+    pub unsafe fn header(mut this: Pin<&mut Request>, header: &Header, bytes: &[u8]) -> Result<(), Status> {
+        let value = Value::parse(bytes).map_err(|_| Status::BadRequest)?;
+        this.headers.append(header, value);
+        Ok(())
     }
 
     #[inline]
     /// SAFETY: `bytes` must be alive as long as `body` of `this` is in use;
     /// especially, reading from `this.buf`
-    pub unsafe fn body(this: &mut Request, bytes: &[u8]) {
+    pub unsafe fn body(mut this: Pin<&mut Request>, bytes: &[u8]) {
         this.body = Some(Bytes::Ref(UnsafeRef::new(bytes)))
     }
 }

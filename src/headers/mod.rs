@@ -12,6 +12,12 @@ pub struct Headers {
 }
 
 const _/* trait impls */: () = {
+    // impl Default for Headers {
+    //     fn default() -> Self {
+    //         Self::new()
+    //     }
+    // }
+
     impl std::fmt::Debug for Headers {
         fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
             f.debug_map()

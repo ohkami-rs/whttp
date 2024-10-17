@@ -37,3 +37,6 @@ rt_glommio   = ["mews?/glommio"]
 
 ### DEBUG ###
 default = ["sse", "ws_tokio"]
+
+[dev-dependencies]
+http = "1.1"
