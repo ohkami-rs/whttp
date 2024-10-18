@@ -1,6 +1,8 @@
 mod method;
+mod memory;
 
 pub use method::Method;
+use memory::Memory;
 
 use crate::headers::{Header, Headers, SetHeader, Value};
 use crate::util::{Bytes, IntoBytes, IntoStr, Str};
@@ -8,13 +10,12 @@ use ::std::{borrow::Cow, net::IpAddr};
 use ::unsaferef::UnsafeRef;
 use ::percent_encoding::{percent_decode, percent_encode, NON_ALPHANUMERIC};
 
-const BUF_SIZE: usize = 1024;
-
 // TODO: rethink the size of this struct taking CPU cacheline to consideration
-// (current: 136byte -> if remove some 8byte: 128byte)
+// (current: 144 bytes -> if remove some 16 bytes: 128 bytes)
 pub struct Request {
-    __buf__: Option<Box<[u8; BUF_SIZE]>>,
+    __buf__: Option<Box<[u8; parse::BUF_SIZE]>>,
     ip:      Option<IpAddr>,
+    memory:  Memory,
     method:  Method,
     path:    Str,
     query:   Option<Bytes>,
@@ -28,6 +29,7 @@ impl Request {
         Self {
             __buf__: None,
             ip: None,
+            memory:  Memory::new(),
             method,
             path:    path.into_str(),
             query:   None,
@@ -100,6 +102,10 @@ impl Request {
         }
     }
 
+    pub fn memory<Data: Send + Sync + 'static>(&self) -> Option<&Data> {
+        self.memory.get()
+    }
+
     pub const fn method(&self) -> Method {
         self.method
     }
@@ -109,12 +115,14 @@ impl Request {
         &self.path
     }
 
+    #[inline]
     pub fn query_raw(&self) -> Option<&[u8]> {
         match &self.query {
             Some(q) => Some(&q),
             None => None
         }
     }
+    #[inline]
     pub fn query(&self) -> Option<std::borrow::Cow<str>> {
         match &self.query {
             Some(q) => match percent_decode(q).decode_utf8() {
@@ -145,6 +153,11 @@ impl Request {
 }
 
 impl Request {
+    #[inline]
+    pub fn memorize<Data: Send + Sync + 'static>(&mut self, data: Data) {
+        self.memory.insert(data);
+    }
+
     #[inline]
     pub fn set(&mut self, header: &Header, setter: impl SetHeader) -> &mut Self {
         self.headers.set(header, setter);
@@ -187,16 +200,51 @@ pub mod parse {
     use crate::Status;
     use std::pin::Pin;
 
-    pub fn new(ip: IpAddr) -> Request {
+    pub const BUF_SIZE: usize = 1024;
+
+    pub fn new() -> Request {
         Request {
+            ip: None,
+            /////////
             __buf__: Some(Box::new([0; BUF_SIZE])),
-            ip:      Some(ip),
+            memory:  Memory::new(),
             method:  Method::GET,
             path:    Str::Ref(unsafe {UnsafeRef::new("/")}),
             query:   None,
             headers: Headers::with_capacity(8),
             body:    None,
         }
+    }
+    pub fn new_from(ip: IpAddr) -> Request {
+        Request {
+            ip: Some(ip),
+            /////////////
+            __buf__: Some(Box::new([0; BUF_SIZE])),
+            memory:  Memory::new(),
+            method:  Method::GET,
+            path:    Str::Ref(unsafe {UnsafeRef::new("/")}),
+            query:   None,
+            headers: Headers::with_capacity(8),
+            body:    None,
+        }
+    }
+
+    #[inline]
+    pub fn clear(this: &mut Pin<&mut Request>) {
+        let Some(buf) = &mut this.__buf__ else {return};
+        if buf[0] == 0 {return}
+
+        for b in &mut **buf {
+            match b {
+                0 => break,
+                _ => *b = 0
+            }
+        }
+        this.memory.clear();
+        this.path = Str::Ref(unsafe {UnsafeRef::new("/")});
+        this.query = None;
+        this.headers.clear();
+        this.body = None;
     }
 
     pub fn buf(this: Pin<&mut Request>) -> &mut Box<[u8; BUF_SIZE]> {
@@ -208,7 +256,7 @@ pub mod parse {
     }
 
     #[inline]
-    pub fn method(mut this: Pin<&mut Request>, bytes: &[u8]) -> Result<(), Status> {
+    pub fn method(this: &mut Pin<&mut Request>, bytes: &[u8]) -> Result<(), Status> {
         let method = Method::from_bytes(bytes)
             .ok_or(Status::NotImplemented)?;
         Ok(this.method = method)
@@ -217,7 +265,7 @@ pub mod parse {
     #[inline]
     /// SAFETY: `bytes` must be alive as long as `path` of `this` is in use;
     /// especially, reading from `this.buf`
-    pub unsafe fn path(mut this: Pin<&mut Request>, bytes: &[u8]) -> Result<(), Status> {
+    pub unsafe fn path(this: &mut Pin<&mut Request>, bytes: &[u8]) -> Result<(), Status> {
         (bytes.len() > 0 && *bytes.get_unchecked(0) == b'/')
             .then_some(())
             .ok_or(Status::BadRequest)?;
@@ -231,21 +279,24 @@ pub mod parse {
     /// 
     /// SAFETY: `bytes` must be alive as long as `query` of `this` is in use;
     /// especially, reading from `this.buf`
-    pub unsafe fn query(mut this: Pin<&mut Request>, bytes: &[u8]) {
+    pub unsafe fn query(this: &mut Pin<&mut Request>, bytes: &[u8]) {
         this.query = Some(Bytes::Ref(UnsafeRef::new(bytes)))
     }
 
     #[inline]
-    pub unsafe fn header(mut this: Pin<&mut Request>, header: &Header, bytes: &[u8]) -> Result<(), Status> {
-        let value = Value::parse(bytes).map_err(|_| Status::BadRequest)?;
-        this.headers.append(header, value);
+    /// SAFETY: `name_bytes` and `value_bytes` must be alive as long as `headers` of `this` is in use;
+    /// especially, reading from `this.buf`
+    pub unsafe fn header(this: &mut Pin<&mut Request>, name_bytes: &[u8], value_bytes: &[u8]) -> Result<(), Status> {
+        let name  = Header::parse_mainly_standard(name_bytes).map_err(|_| Status::BadRequest)?;
+        let value = Value::parse(value_bytes).map_err(|_| Status::BadRequest)?;
+        this.headers.push(name, value);
         Ok(())
     }
 
     #[inline]
     /// SAFETY: `bytes` must be alive as long as `body` of `this` is in use;
     /// especially, reading from `this.buf`
-    pub unsafe fn body(mut this: Pin<&mut Request>, bytes: &[u8]) {
+    pub unsafe fn body(this: &mut Pin<&mut Request>, bytes: &[u8]) {
         this.body = Some(Bytes::Ref(UnsafeRef::new(bytes)))
     }
 }

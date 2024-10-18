@@ -4,13 +4,15 @@ extern crate test;
 use test::black_box;
 // const fn black_box<T>(t: T) -> T {t}
 
-#[bench] fn intert_http(b: &mut test::Bencher) {
-    use ::http::{HeaderMap, HeaderName, HeaderValue, header};
-    use std::mem::{MaybeUninit, replace};
+mod __http__ {
+    use super::*;
+    pub use ::http::*;
 
-    let mut h = MaybeUninit::new(HeaderMap::new());
-    b.iter(|| -> HeaderMap {
-        let mut h = unsafe {replace(&mut h, MaybeUninit::uninit()).assume_init()};
+    pub const X_MYAPP_DATA: HeaderName = HeaderName::from_static("x-myapp-data");
+    pub const SOMETHING:    HeaderName = HeaderName::from_static("something");
+
+    #[inline(always)]
+    pub fn init(h: &mut HeaderMap) {
         h.insert(header::ACCESS_CONTROL_ALLOW_CREDENTIALS, black_box(HeaderValue::from_static("true")));
         h.insert(header::ACCESS_CONTROL_ALLOW_HEADERS,     black_box(HeaderValue::from_static("X-Custom-Header,Upgrade-Insecure-Requests")));
         h.insert(header::ACCESS_CONTROL_ALLOW_ORIGIN,      black_box(HeaderValue::from_static("https://foo.bar.org")));
@@ -21,22 +23,27 @@ use test::black_box;
         h.insert(header::DATE,                             black_box(HeaderValue::from_static("Wed, 21 Oct 2015 07:28:00 GMT")));
         h.insert(header::REFERRER_POLICY,                  black_box(HeaderValue::from_static("same-origin")));
         h.insert(header::X_FRAME_OPTIONS,                  black_box(HeaderValue::from_static("DENY")));
-        h.insert(HeaderName::from_static("x-myapp-data"),  black_box(HeaderValue::from_static("excellent")));
-        h.insert(HeaderName::from_static("something"),     black_box(HeaderValue::from_static("anything")));
+        h.insert(X_MYAPP_DATA,                             black_box(HeaderValue::from_static("excellent")));
+        h.insert(SOMETHING,                                black_box(HeaderValue::from_static("anything")));
+    }
+
+    #[inline(always)]
+    pub fn initialized() -> HeaderMap {
+        let mut h = HeaderMap::new();
+        init(&mut h);
         h
-    });
+    }
 }
 
-#[bench] fn insert_whttp(b: &mut test::Bencher) {
-    use ::whttp::{Headers, Header, header};
-    use std::mem::{MaybeUninit, replace};
+mod __whttp__ {
+    use super::*;
+    pub use ::whttp::*;
 
-    const X_MYAPP_DATA: &Header = &Header::new("x-myapp-data");
-    const SOMETHING:    &Header = &Header::new("something");
+    pub const X_MYAPP_DATA: &Header = &Header::new("x-myapp-data");
+    pub const SOMETHING:    &Header = &Header::new("something");
 
-    let mut h = MaybeUninit::new(Headers::new());
-    b.iter(|| -> Headers {
-        let mut h = unsafe {replace(&mut h, MaybeUninit::uninit()).assume_init()};
+    #[inline(always)]
+    pub fn init(h: &mut Headers) {
         h
             .set(header::AccessControlAllowCredentials, black_box("true"))
             .set(header::AccessControlAllowHeaders,     black_box("X-Custom-Header,Upgrade-Insecure-Requests"))
@@ -51,6 +58,88 @@ use test::black_box;
             .set(X_MYAPP_DATA,                          black_box("excellent"))
             .set(SOMETHING,                             black_box("anything"))
         ;
+    }
+
+    #[inline(always)]
+    pub fn initialized() -> Headers {
+        let mut h = Headers::new();
+        init(&mut h);
         h
+    }
+}
+
+#[bench] fn new_http(b: &mut test::Bencher) {
+    use __http__::*;
+
+    b.iter(|| -> HeaderMap {
+        HeaderMap::new()
+    });
+}
+#[bench] fn new_whttp(b: &mut test::Bencher) {
+    use __whttp__::*;
+
+    b.iter(|| -> Headers {
+        Headers::new()
+    });
+}
+
+#[bench] fn initialize_http(b: &mut test::Bencher) {
+    use __http__::*;
+
+    b.iter(|| -> HeaderMap {
+        initialized()
+    });
+}
+#[bench] fn initialize_whttp(b: &mut test::Bencher) {
+    use __whttp__::*;
+
+    b.iter(|| -> Headers {
+        initialized()
+    });
+}
+
+#[bench] fn insert_http(b: &mut test::Bencher) {
+    use __http__::*;
+
+    let mut h = HeaderMap::new();
+    b.iter(|| {
+        h.clear();
+        init(&mut h);
+    });
+}
+#[bench] fn insert_whttp(b: &mut test::Bencher) {
+    use __whttp__::*;
+
+    let mut h = Headers::new();
+    b.iter(|| {
+        h.clear();
+        init(&mut h);
+    });
+}
+
+#[bench] fn remove_http(b: &mut test::Bencher) {
+    use __http__::*;
+
+    let mut h = initialized();
+    b.iter(|| {
+        h.remove(header::ACCESS_CONTROL_ALLOW_CREDENTIALS);
+        h.remove(header::ACCESS_CONTROL_ALLOW_HEADERS);
+        h.remove(header::ACCESS_CONTROL_ALLOW_METHODS);
+        h.remove(header::ACCESS_CONTROL_ALLOW_ORIGIN);
+        h.remove(header::ACCESS_CONTROL_MAX_AGE);
+        h.remove(X_MYAPP_DATA);
+    });
+}
+#[bench] fn remove_whttp(b: &mut test::Bencher) {
+    use __whttp__::*;
+
+    let mut h = initialized();
+    b.iter(|| {
+        h.remove(header::AccessControlAllowCredentials);
+        h.remove(header::AccessControlAllowHeaders);
+        h.remove(header::AccessControlAllowMethods);
+        h.remove(header::AccessControlAllowOrigin);
+        h.remove(header::AccessControlMaxAge);
+        h.remove(X_MYAPP_DATA);
     });
 }

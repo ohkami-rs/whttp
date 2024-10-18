@@ -12,11 +12,11 @@ pub struct Headers {
 }
 
 const _/* trait impls */: () = {
-    // impl Default for Headers {
-    //     fn default() -> Self {
-    //         Self::new()
-    //     }
-    // }
+    impl Default for Headers {
+        fn default() -> Self {
+            Self::new()
+        }
+    }
 
     impl std::fmt::Debug for Headers {
         fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -76,29 +76,20 @@ impl Headers {
 
     #[inline]
     pub fn insert(&mut self, header: &Header, value: impl Into<Value>) {
-        self.table.insert_unique(header.hash, (header.clone(), value.into()), hasher);
-    }
-
-    #[inline]
-    pub fn remove(&mut self, header: &Header) {
-        if let Ok(entry) = self.table.find_entry(header.hash, eq_to(header)) {
-            entry.remove();
-        }
-    }
-
-    #[inline]
-    pub fn append(&mut self, header: &Header, value: impl Into<Value>) -> &mut Self {
         let value = value.into();
         match self.table.entry(header.hash, eq_to(header), hasher) {
-            Entry::Occupied(mut entry) => {entry.get_mut().1.append(value)}
+            Entry::Occupied(mut entry) => {entry.get_mut().1 = value;}
             Entry::Vacant(entry) => {entry.insert((header.clone(), value));}
         }
-        self
     }
 
     #[inline]
-    pub fn iter(&self) -> impl Iterator<Item = (&Header, &str)> {
-        self.table.iter().map(|(h, v)| (h, &**v))
+    pub fn remove(&mut self, header: &Header) -> Option<Value> {
+        if let Ok(entry) = self.table.find_entry(header.hash, eq_to(header)) {
+            Some(entry.remove().0.1)
+        } else {
+            None
+        }
     }
 
     #[inline]
@@ -107,9 +98,35 @@ impl Headers {
     }
 
     #[inline]
+    pub fn append(&mut self, header: &Header, value: impl Into<Value>) -> &mut Self {
+        let value = value.into();
+        match self.table.entry(header.hash, eq_to(header), hasher) {
+            Entry::Occupied(mut entry) => {entry.get_mut().1.append(value);}
+            Entry::Vacant(entry) => {entry.insert((header.clone(), value));}
+        }
+        self
+    }
+
+    /// append with owned `Header` (mainly used in request parsing)
+    #[inline]
+    pub fn push(&mut self, header: Header, value: impl Into<Value>) -> &mut Self {
+        let value = value.into();
+        match self.table.entry(header.hash, eq_to(&header), hasher) {
+            Entry::Occupied(mut entry) => {entry.get_mut().1.append(value);}
+            Entry::Vacant(entry) => {entry.insert((header, value));}
+        }
+        self
+    }
+
+    #[inline]
     pub fn set(&mut self, header: &Header, setter: impl SetHeader) -> &mut Self {
         setter.set(header, self);
         self
+    }
+
+    #[inline]
+    pub fn iter(&self) -> impl Iterator<Item = (&Header, &str)> {
+        self.table.iter().map(|(h, v)| (h, &**v))
     }
 }
 
@@ -120,7 +137,7 @@ const _: () = {
     impl SetHeader for Option<()> {
         #[inline]
         fn set(self, header: &Header, headers: &mut Headers) {
-            headers.remove(header)
+            headers.remove(header);
         }
     }
     impl<V: Into<Value>> SetHeader for V {
