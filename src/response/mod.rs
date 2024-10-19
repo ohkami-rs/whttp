@@ -70,6 +70,23 @@ impl Response {
         self
     }
 
+    /// drop `body`, `Content-Type` and `Content-Length` if exists
+    pub fn drop_body(&mut self) -> &mut Self {
+        use crate::header::{ContentLength, ContentType};
+
+        self.set(ContentType, None)
+            .set(ContentLength, None);
+        self.body = None;
+        self
+    }
+
+    /// drop only `body`, remaining `Content-Type` and `Content-Length`
+    /// if exists for responding to a HEAD request
+    pub fn as_head(&mut self) -> &mut Self {
+        self.body = None;
+        self
+    }
+
     #[inline]
     pub fn set_payload(
         &mut self,
@@ -142,6 +159,19 @@ impl Response {
     #[inline(always)]
     pub fn with(mut self, header: &Header, value: impl Into<Value>) -> Self {
         self.headers.insert(header, value);
+        self
+    }
+
+    /// without `body`, `Content-Type` and `Content-Length`
+    pub fn without_body(mut self) -> Self {
+        self.drop_body();
+        self
+    }
+
+    /// without `body` but remaining `Content-Type` and `Content-Length`
+    /// if exists for responding to a HEAD request
+    pub fn into_head(mut self) -> Self {
+        self.as_head();
         self
     }
 
