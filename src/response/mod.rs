@@ -43,6 +43,13 @@ impl Response {
     pub const fn body(&self) -> Option<&Body> {
         self.body.as_ref()
     }
+
+    pub fn payload(&self) -> Option<&[u8]> {
+        match self.body()? {
+            Body::Payload(p) => Some(p),
+            _ => None
+        }
+    }
 }
 
 impl Response {
