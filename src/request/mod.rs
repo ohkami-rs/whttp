@@ -6,15 +6,12 @@ use memory::Memory;
 
 use crate::headers::{Header, Headers, SetHeader, Value};
 use crate::util::{Bytes, IntoBytes, IntoStr, Str};
-use ::std::{borrow::Cow, net::IpAddr};
+use ::std::borrow::Cow;
 use ::unsaferef::UnsafeRef;
 use ::percent_encoding::{percent_decode, percent_encode, NON_ALPHANUMERIC};
 
-// TODO: rethink the size of this struct taking CPU cacheline to consideration
-// (current: 144 bytes -> if remove some 16 bytes: 128 bytes)
 pub struct Request {
     __buf__: Option<Box<[u8; parse::BUF_SIZE]>>,
-    ip:      Option<IpAddr>,
     memory:  Memory,
     method:  Method,
     path:    Str,
@@ -28,7 +25,6 @@ impl Request {
     pub fn of(method: Method, path: impl IntoStr) -> Self {
         Self {
             __buf__: None,
-            ip: None,
             memory:  Memory::new(),
             method,
             path:    path.into_str(),
@@ -95,13 +91,6 @@ impl Request {
 }
 
 impl Request {
-    pub const fn ip(&self) -> Option<&IpAddr> {
-        match &self.ip {
-            Some(ip) => Some(ip),
-            None => None
-        }
-    }
-
     pub fn memory<Data: Send + Sync + 'static>(&self) -> Option<&Data> {
         self.memory.get()
     }
@@ -204,21 +193,6 @@ pub mod parse {
 
     pub fn new() -> Request {
         Request {
-            ip: None,
-            /////////
-            __buf__: Some(Box::new([0; BUF_SIZE])),
-            memory:  Memory::new(),
-            method:  Method::GET,
-            path:    Str::Ref(unsafe {UnsafeRef::new("/")}),
-            query:   None,
-            headers: Headers::with_capacity(8),
-            body:    None,
-        }
-    }
-    pub fn new_from(ip: IpAddr) -> Request {
-        Request {
-            ip: Some(ip),
-            /////////////
             __buf__: Some(Box::new([0; BUF_SIZE])),
             memory:  Memory::new(),
             method:  Method::GET,
