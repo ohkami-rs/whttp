@@ -284,8 +284,8 @@ pub mod parse {
         this.body = Some(Bytes::Ref(UnsafeRef::new(bytes)))
     }
     #[inline]
-    pub fn body_own(this: &mut Pin<&mut Request>, bytes: &[u8]) {
-        this.body = Some(Bytes::Own(Vec::from(bytes)))
+    pub fn body_own(this: &mut Pin<&mut Request>, bytes: Vec<u8>) {
+        this.body = Some(Bytes::Own(bytes))
     }
 }
 

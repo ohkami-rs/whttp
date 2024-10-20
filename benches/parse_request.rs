@@ -131,7 +131,7 @@ fn whttp_parse_http1<'incoming>(req: &mut std::pin::Pin<&mut whttp::Request>, in
         .map(|v| v.bytes().fold(0, |n, b| 10*n + (b-b'0') as usize))
     {
         assert_eq!(r.index + n, incoming.len());
-        parse::body_own(req, &incoming[r.index..(r.index + n)]);
+        parse::body_own(req, Vec::from(&incoming[r.index..(r.index + n)]));
     }
 
     r
