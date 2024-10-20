@@ -36,10 +36,14 @@ impl Response {
         self.status
     }
 
+    pub fn headers(&self) -> &Headers {
+        &self.headers
+    }
     pub fn header(&self, header: &Header) -> Option<&str> {
         self.headers.get(header)
     }
 
+    #[inline]
     pub const fn body(&self) -> Option<&Body> {
         self.body.as_ref()
     }

@@ -58,6 +58,9 @@ impl Request {
         }
     }
 
+    pub fn headers(&self) -> &Headers {
+        &self.headers
+    }
     #[inline]
     pub fn header(&self, header: &Header) -> Option<&str> {
         self.headers.get(header)
