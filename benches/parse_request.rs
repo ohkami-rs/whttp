@@ -110,7 +110,7 @@ fn whttp_parse_http1<'incoming>(req: &mut std::pin::Pin<&mut whttp::Request>, in
         std::slice::from_raw_parts(buf.as_ptr(), buf.len())
     });
 
-    parse::method(req, r.read_while(|&b| b != b' ')).unwrap();
+    unsafe {parse::method(req, r.read_while(|&b| b != b' '))}.unwrap();
     r.consume(" ").unwrap();
 
     unsafe {parse::path(req, r.read_while(|&b| b != b' '))}.unwrap();
@@ -131,7 +131,7 @@ fn whttp_parse_http1<'incoming>(req: &mut std::pin::Pin<&mut whttp::Request>, in
         .map(|v| v.bytes().fold(0, |n, b| 10*n + (b-b'0') as usize))
     {
         assert_eq!(r.index + n, incoming.len());
-        req.set_body(Vec::from(&incoming[r.index..(r.index + n)]));
+        parse::body_own(req, &incoming[r.index..(r.index + n)]);
     }
 
     r

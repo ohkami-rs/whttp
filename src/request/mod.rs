@@ -15,9 +15,61 @@ pub struct Request {
     memory:  Memory,
     method:  Method,
     path:    Str,
-    query:   Option<Bytes>,
+    query:   Option<Str>,
     headers: Headers,
     body:    Option<Bytes>,
+}
+
+impl Request {
+    pub fn memory<Data: Send + Sync + 'static>(&self) -> Option<&Data> {
+        self.memory.get()
+    }
+
+    /// **note** : `method` and `path` of `Request` is immutable
+    pub const fn method(&self) -> Method {
+        self.method
+    }
+
+    /// **note** : `method` and `path` of `Request` is immutable
+    #[inline]
+    pub fn raw_path(&self) -> &str {
+        &self.path
+    }
+    /// **note** : `method` and `path` of `Request` is immutable
+    #[inline]
+    pub fn path(&self) -> Cow<str> {
+        let path = &*self.path;
+        match percent_decode(path.as_bytes()).decode_utf8() {
+            Ok(p) => p,
+            Err(_e) => {
+                #[cfg(debug_assertions)] {
+                    eprintln!("`Request::path` found invalid path: {_e}")
+                }
+                Cow::Borrowed(path)
+            }
+        }
+    }
+
+    #[inline]
+    pub fn query(&self) -> Option<&str> {
+        match &self.query {
+            Some(q) => Some(&q),
+            None => None
+        }
+    }
+
+    #[inline]
+    pub fn header(&self, header: &Header) -> Option<&str> {
+        self.headers.get(header)
+    }
+
+    #[inline]
+    pub fn body(&self) -> Option<&[u8]> {
+        match &self.body {
+            Some(b) => Some(&b),
+            None => None
+        }
+    }
 }
 
 impl Request {
@@ -41,38 +93,13 @@ impl Request {
     }
 
     pub fn with_query(mut self, key: impl IntoStr, value: impl IntoStr) -> Self {
-        let key = key.into_str();
-        let key = <Cow<str>>::from(percent_encode(key.as_bytes(), NON_ALPHANUMERIC));
-
-        let value = value.into_str();
-        let value = <Cow<str>>::from(percent_encode(value.as_bytes(), NON_ALPHANUMERIC));
-
-        match &mut self.query {
-            None => self.query = Some(Bytes::Own(
-                Vec::with_capacity(key.len() + 1 + value.len())
-            )),
-            Some(query) => {
-                let query = query.to_mut();
-                query.push(b'&');
-                query.reserve(key.len() + 1 + value.len());
-            }
-        }
-
-        let Some(Bytes::Own(query)) = &mut self.query else {unreachable!()};
-        query.extend_from_slice(key.as_bytes());
-        query.push(b'=');
-        query.extend_from_slice(value.as_bytes());
-
+        self.set_query(key, value);
         self
     }
 
     #[inline]
     pub fn with_body(mut self, content_type: &'static str, body: impl IntoBytes) -> Self {
-        use crate::header::{ContentType, ContentLength};
-        let body = body.into_bytes();
-        self.set(ContentType, content_type)
-            .set(ContentLength, body.len());
-        self.body = Some(body);
+        self.set_body(content_type, body);
         self
     }
 
@@ -87,57 +114,6 @@ impl Request {
         self.with_body("application/json",
             ::serde_json::to_vec(&json).expect("failed to serialize")
         )
-    }
-}
-
-impl Request {
-    pub fn memory<Data: Send + Sync + 'static>(&self) -> Option<&Data> {
-        self.memory.get()
-    }
-
-    pub const fn method(&self) -> Method {
-        self.method
-    }
-
-    #[inline]
-    pub fn path(&self) -> &str {
-        &self.path
-    }
-
-    #[inline]
-    pub fn query_raw(&self) -> Option<&[u8]> {
-        match &self.query {
-            Some(q) => Some(&q),
-            None => None
-        }
-    }
-    #[inline]
-    pub fn query(&self) -> Option<std::borrow::Cow<str>> {
-        match &self.query {
-            Some(q) => match percent_decode(q).decode_utf8() {
-                Ok(dq) => Some(dq),
-                Err(_e) => {
-                    #[cfg(debug_assertions)] {
-                        eprintln!("`Request::query` found invalid query: {_e}");
-                    }
-                    None
-                }
-            },
-            None => None
-        }
-    }
-
-    #[inline]
-    pub fn header(&self, header: &Header) -> Option<&str> {
-        self.headers.get(header)
-    }
-
-    #[inline]
-    pub fn body(&self) -> Option<&[u8]> {
-        match &self.body {
-            Some(b) => Some(&b),
-            None => None
-        }
     }
 }
 
@@ -160,26 +136,42 @@ impl Request {
     }
 
     #[inline]
-    pub fn set_method(&mut self, method: Method) -> &mut Self {
-        self.method = method;
+    pub fn set_query(&mut self, key: impl IntoStr, value: impl IntoStr) -> &mut Self {
+        let key = key.into_str();
+        let key = <Cow<str>>::from(percent_encode(key.as_bytes(), NON_ALPHANUMERIC));
+
+        let value = value.into_str();
+        let value = <Cow<str>>::from(percent_encode(value.as_bytes(), NON_ALPHANUMERIC));
+
+        let len = key.len() + "=".len() + value.len();
+
+        match &mut self.query {
+            None => self.query = Some(Str::Own(
+                String::with_capacity(len)
+            )),
+            Some(query) => {
+                let query = query.to_mut();
+                query.push('&');
+                query.reserve(len);
+            }
+        }
+
+        let Some(Str::Own(query)) = &mut self.query else {unreachable!()};
+        query.push_str(&key);
+        query.push('=');
+        query.push_str(&value);
+
         self
     }
 
     #[inline]
-    pub fn set_path(&mut self, path: impl IntoStr) -> &mut Self {
-        self.path = path.into_str();
-        self
-    }
+    pub fn set_body(&mut self, content_type: &'static str, body: impl IntoBytes) -> &mut Self {
+        use crate::header::{ContentType, ContentLength};
 
-    #[inline]
-    pub fn set_query(&mut self, query: impl IntoBytes) -> &mut Self {
-        self.query = Some(query.into_bytes());
-        self
-    }
-
-    #[inline]
-    pub fn set_body(&mut self, body: impl IntoBytes) -> &mut Self {
-        self.body = Some(body.into_bytes());
+        let body = body.into_bytes();
+        self.set(ContentType, content_type)
+            .set(ContentLength, body.len());
+        self.body = Some(body);
         self
     }
 }
@@ -229,16 +221,23 @@ pub mod parse {
         unsafe {buf.as_mut().unwrap_unchecked()}
     }
 
+    /// ## SAFETY
+    /// 
+    /// * must be called just once for `this`
     #[inline]
-    pub fn method(this: &mut Pin<&mut Request>, bytes: &[u8]) -> Result<(), Status> {
+    pub unsafe fn method(this: &mut Pin<&mut Request>, bytes: &[u8]) -> Result<(), Status> {
         let method = Method::from_bytes(bytes)
             .ok_or(Status::NotImplemented)?;
         Ok(this.method = method)
     }
 
     #[inline]
-    /// SAFETY: `bytes` must be alive as long as `path` of `this` is in use;
-    /// especially, reading from `this.buf`
+    /// ## SAFETY
+    /// 
+    /// * must be called just once for `this`
+    /// 
+    /// * `bytes` must be alive as long as `path` of `this` is in use;
+    ///   especially, reading from `this.buf`
     pub unsafe fn path(this: &mut Pin<&mut Request>, bytes: &[u8]) -> Result<(), Status> {
         (bytes.len() > 0 && *bytes.get_unchecked(0) == b'/' && bytes.is_ascii())
             .then_some(this.path = Str::Ref(UnsafeRef::new(
@@ -253,8 +252,16 @@ pub mod parse {
     /// 
     /// SAFETY: `bytes` must be alive as long as `query` of `this` is in use;
     /// especially, reading from `this.buf`
-    pub unsafe fn query(this: &mut Pin<&mut Request>, bytes: &[u8]) {
-        this.query = Some(Bytes::Ref(UnsafeRef::new(bytes)))
+    pub unsafe fn query(this: &mut Pin<&mut Request>, bytes: &[u8]) -> Result<(), Status> {
+        if bytes.is_ascii() {
+            this.query = Some(Str::Ref(UnsafeRef::new(
+                // SAFETY: already checked `bytes` is ascii
+                std::str::from_utf8_unchecked(bytes)
+            )));
+            Ok(())
+        } else {
+            Err(Status::BadRequest)
+        }
     }
 
     #[inline]
@@ -270,8 +277,12 @@ pub mod parse {
     #[inline]
     /// SAFETY: `bytes` must be alive as long as `body` of `this` is in use;
     /// especially, reading from `this.buf`
-    pub unsafe fn body(this: &mut Pin<&mut Request>, bytes: &[u8]) {
+    pub unsafe fn body_ref(this: &mut Pin<&mut Request>, bytes: &[u8]) {
         this.body = Some(Bytes::Ref(UnsafeRef::new(bytes)))
+    }
+    #[inline]
+    pub fn body_own(this: &mut Pin<&mut Request>, bytes: &[u8]) {
+        this.body = Some(Bytes::Own(Vec::from(bytes)))
     }
 }
 
