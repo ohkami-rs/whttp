@@ -54,6 +54,11 @@ impl Response {
             _ => None
         }
     }
+
+    #[inline]
+    pub const fn take_body(&mut self) -> Option<Body> {
+        self.body.take()
+    }
 }
 
 impl Response {
