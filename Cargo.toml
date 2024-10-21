@@ -19,24 +19,35 @@ unsaferef        = { version = "0.1"  }
 serde            = { version = "1.0"  }
 serde_json       = { version = "1.0"  }
 futures-core     = { optional = true, version = "0.3" }
+byte_reader      = { optional = true, version = "3.1" }
 mews             = { optional = true, git = "https://github.com/ohkami-rs/mews" }
 
+tokio     = { optional = true, version = "1.40", features = ["io-util"] }
+async-std = { optional = true, version = "1.13" }
+smol      = { optional = true, version = "2.0" }
+glommio   = { optional = true, version = "0.9" }
+
 [features]
-sse          = ["dep:futures-core"]
+sse = ["dep:futures-core"]
 ws_tokio     = ["ws", "rt_tokio"]
 ws_async-std = ["ws", "rt_async-std"]
 ws_smol      = ["ws", "rt_smol"]
 ws_glommio   = ["ws", "rt_glommio"]
+http1_tokio     = ["http1", "rt_tokio"]
+http1_async-std = ["http1", "rt_async-std"]
+http1_smol      = ["http1", "rt_smol"]
+http1_glommio   = ["http1", "rt_glommio"]
 
-### INTERNAL ###
-ws           = ["dep:mews"]
-rt_tokio     = ["mews?/tokio"]
-rt_async-std = ["mews?/async-std"]
-rt_smol      = ["mews?/smol"]
-rt_glommio   = ["mews?/glommio"]
+### INTERNALS ###
+ws = ["dep:mews"]
+http1 = ["dep:byte_reader"]
+rt_tokio     = ["dep:tokio",     "mews?/tokio"]
+rt_async-std = ["dep:async-std", "mews?/async-std"]
+rt_smol      = ["dep:smol",      "mews?/smol"]
+rt_glommio   = ["dep:glommio",   "mews?/glommio"]
 
 ### DEBUG ###
-default = ["sse", "ws_tokio"]
+default = ["sse", "ws", "http1", "rt_tokio"]
 
 [dev-dependencies]
 http = "1.1"

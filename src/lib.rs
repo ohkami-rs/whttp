@@ -28,6 +28,9 @@ pub use headers::{Header, Value, Headers};
 pub use request::{Method, Request};
 pub use response::{Status, Response};
 
+#[cfg(feature="http1")]
+pub mod http1;
+
 mod util {
     use unsaferef::{UnsafeCow, UnsafeRef};
 
