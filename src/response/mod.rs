@@ -243,9 +243,9 @@ const _: () = {
     impl std::fmt::Debug for Response {
         fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
             f.debug_struct("Response")
-                .field("status", &self.status)
-                .field("body", &self.body)
-                .field("", &self.headers)
+                .field("<status>", &self.status)
+                .field("<headers>", &self.headers)
+                .field("<body>", &self.body)
                 .finish()
         }
     }

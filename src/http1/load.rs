@@ -40,7 +40,9 @@ pub async fn load(
         unsafe {parse::query(&mut req, r.read_while(|&b| b != b' '))}?;
     }
 
-    r.consume(" HTTP/1.1\r\n").ok_or(Status::HTTPVersionNotSupported)?;
+    r.next_if(|&b| b == b' ').ok_or(Status::BadRequest)?;
+
+    r.consume("HTTP/1.1\r\n").ok_or(Status::HTTPVersionNotSupported)?;
 
     while r.consume("\r\n").is_none() {
         let name = r.read_while(|&b| b != b':');
@@ -91,4 +93,124 @@ async fn load_body(
     }
 
     Ok(())
+}
+
+
+
+
+#[cfg(feature="DEBUG")]
+#[cfg(test)]
+#[tokio::test]
+async fn test_load_request() {
+    use crate::header::*;
+
+    let mut req = parse::new();
+    let mut req = Pin::new(&mut req);
+
+    {
+        let mut case: &[u8] = {parse::clear(&mut req); b"\
+        "};
+        assert_eq!(load(req.as_mut(), &mut case).await, Ok(None));
+    }
+    {
+        let mut case: &[u8] = {parse::clear(&mut req); b"\
+            GET /HTTP/2\r\n\
+            \r\n\
+        "};
+        assert_eq!(load(req.as_mut(), &mut case).await, Err(Status::BadRequest));
+    }
+    {
+        let mut case: &[u8] = {parse::clear(&mut req); b"\
+            GET / HTTP/2\r\n\
+            \r\n\
+        "};
+        assert_eq!(load(req.as_mut(), &mut case).await, Err(Status::HTTPVersionNotSupported));
+    }
+    {
+        let mut case: &[u8] = {parse::clear(&mut req); b"\
+            GET / HTTP/1.1\r\n\
+        "};
+        assert_eq!(load(req.as_mut(), &mut case).await, Err(Status::BadRequest));
+    }
+    {
+        let mut case: &[u8] = {parse::clear(&mut req); b"\
+            GET / HTTP/1.1\r\n\
+            \r\n\
+        "};
+        assert_eq!(load(req.as_mut(), &mut case).await, Ok(Some(())));
+        assert_eq!(*req, Request::GET("/"));
+    }
+    {
+        let mut case: &[u8] = {parse::clear(&mut req); b"\
+            GET / HTTP/1.1\r\n\
+            Host: http://127.0.0.1:3000\r\n\
+            \r\n\
+        "};
+        assert_eq!(load(req.as_mut(), &mut case).await, Ok(Some(())));
+        assert_eq!(*req, Request::GET("/").with(Host, "http://127.0.0.1:3000"));
+    }
+    {
+        let mut case: &[u8] = {parse::clear(&mut req); b"\
+            POST /api/users HTTP/1.1\r\n\
+            Host: http://127.0.0.1:3000\r\n\
+            Content-Type: application/json\r\n\
+            Content-Length: 24\r\n\
+            \r\n\
+            {\"name\":\"whttp\",\"age\":0}\
+        "};
+        assert_eq!(load(req.as_mut(), &mut case).await, Ok(Some(())));
+        assert_eq!(*req,
+            Request::POST("/api/users")
+            .with(Host, "http://127.0.0.1:3000")
+            .with_body("application/json", "{\"name\":\"whttp\",\"age\":0}")
+        );
+    }
+    {
+        let mut case: &[u8] = {parse::clear(&mut req); b"\
+            POST /api/users HTTP/1.1\r\n\
+            Host: http://127.0.0.1:3000\r\n\
+            Content-Type: application/json\r\n\
+            Content-Length: 22\r\n\
+            \r\n\
+            {\"name\":\"whttp\",\"age\":0}\
+        "};
+        assert_eq!(load(req.as_mut(), &mut case).await, Ok(Some(())));
+        assert_eq!(*req,
+            Request::POST("/api/users")
+            .with(Host, "http://127.0.0.1:3000")
+            .with_body("application/json", "{\"name\":\"whttp\",\"age\":")
+        );
+    }
+    {
+        let mut case: &[u8] = {parse::clear(&mut req); b"\
+            POST /api/users HTTP/1.1\r\n\
+            host: http://127.0.0.1:3000\r\n\
+            content-type: application/json\r\n\
+            content-length: 24\r\n\
+            \r\n\
+            {\"name\":\"whttp\",\"age\":0}\
+        "};
+        assert_eq!(load(req.as_mut(), &mut case).await, Ok(Some(())));
+        assert_eq!(*req,
+            Request::POST("/api/users")
+            .with(Host, "http://127.0.0.1:3000")
+            .with_body("application/json", "{\"name\":\"whttp\",\"age\":0}")
+        );
+    }
+    {
+        let mut case: &[u8] = {parse::clear(&mut req); b"\
+            POST /api/users HTTP/1.1\r\n\
+            host: http://127.0.0.1:3000\r\n\
+            content-type: application/json\r\n\
+            content-Length: 24\r\n\
+            \r\n\
+            {\"name\":\"whttp\",\"age\":0}\
+        "};
+        assert_eq!(load(req.as_mut(), &mut case).await, Ok(Some(())));
+        assert_eq!(*req,
+            Request::POST("/api/users")
+            .with(Host, "http://127.0.0.1:3000")
+            .with_body("application/json", "{\"name\":\"whttp\",\"age\":0}")
+        );
+    }
 }

@@ -303,11 +303,11 @@ const _: () = {
     impl std::fmt::Debug for Request {
         fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
             f.debug_struct("Request")
-                .field("method", &self.method)
-                .field("path", &self.path)
-                .field("query", &self.query())
-                .field("body", &self.body)
-                .field("", &self.headers)
+                .field("<method>", &self.method)
+                .field("<path>", &self.path)
+                .field("<query>", &self.query())
+                .field("<headers>", &self.headers)
+                .field("<body>", &self.body().map(|bytes| bytes.escape_ascii().to_string()))
                 .finish()
         }
     }

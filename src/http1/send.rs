@@ -94,3 +94,16 @@ fn hexized_bytes(n: usize) -> [u8; size_of::<usize>() * 2] {
         })
     }
 }
+
+
+
+
+#[cfg(feature="DEBUG")]
+#[cfg(test)]
+#[tokio::test]
+async fn test_send_response() {
+    {
+        let mut buf = Vec::<u8>::new();
+        
+    }
+}

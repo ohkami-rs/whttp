@@ -64,11 +64,23 @@ mod util {
                 Bytes::Ref(unsafe {UnsafeRef::new(self)})
             }
         }
+        impl IntoBytes for &'static str {
+            #[inline]
+            fn into_bytes(self) -> Bytes {
+                Bytes::Ref(unsafe {UnsafeRef::new(self.as_bytes())})
+            }
+        }
     
         impl IntoBytes for Vec<u8> {
             #[inline]
             fn into_bytes(self) -> Bytes {
                 Bytes::Own(self)
+            }
+        }
+        impl IntoBytes for String {
+            #[inline]
+            fn into_bytes(self) -> Bytes {
+                Bytes::Own(String::into_bytes(self))
             }
         }
     
@@ -77,6 +89,14 @@ mod util {
                 match self {
                     std::borrow::Cow::Borrowed(b) => b.into_bytes(),
                     std::borrow::Cow::Owned(o) => o.into_bytes()
+                }
+            }
+        }
+        impl IntoBytes for std::borrow::Cow<'static, str> {
+            fn into_bytes(self) -> Bytes {
+                match self {
+                    std::borrow::Cow::Borrowed(b) => IntoBytes::into_bytes(b),
+                    std::borrow::Cow::Owned(o) => IntoBytes::into_bytes(o)
                 }
             }
         }

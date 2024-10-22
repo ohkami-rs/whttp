@@ -48,7 +48,7 @@ http1_smol      = ["http1", "rt_smol"]
 http1_glommio   = ["http1", "rt_glommio"]
 
 ### DEBUG ###
-DEBUG   = []
+DEBUG   = ["tokio?/full"]
 default = ["DEBUG", "sse", "ws", "http1", "rt_tokio"]
 
 [dev-dependencies]
