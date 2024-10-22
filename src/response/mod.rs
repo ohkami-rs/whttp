@@ -9,7 +9,7 @@ use ::std::borrow::Cow;
 use ::serde::Serialize;
 
 #[cfg(feature="sse")]
-use ::futures_core::Stream;
+use ::futures_util::Stream;
 
 #[cfg(feature="ws")]
 use ::mews::WebSocket;

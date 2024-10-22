@@ -1,7 +1,7 @@
 use std::borrow::Cow;
 
 #[cfg(feature="sse")]
-use ::futures_core::Stream;
+use ::futures_util::Stream;
 
 #[cfg(feature="ws")]
 use ::mews::WebSocket;

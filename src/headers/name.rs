@@ -60,7 +60,7 @@ const _/* trait impls */: () = {
     impl std::ops::Deref for Header {
         type Target = str;
 
-        #[inline]
+        #[inline(always)]
         fn deref(&self) -> &Self::Target {
             // SAFETY: `Header` constructors' SAFETYs
             unsafe {self.name.as_ref()}

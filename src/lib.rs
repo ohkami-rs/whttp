@@ -28,8 +28,25 @@ pub use headers::{Header, Value, Headers};
 pub use request::{Method, Request};
 pub use response::{Status, Response};
 
+#[cfg(feature="ws")]
+pub mod ws {pub use mews::*;}
+
 #[cfg(feature="http1")]
 pub mod http1;
+
+mod io {
+    #[cfg(feature="rt_tokio")]
+    pub use tokio::io::{AsyncReadExt as Read, AsyncWriteExt as Write};
+
+    #[cfg(feature="rt_async-std")]
+    pub use async_std::io::{ReadExt as Read, WriteExt as Write};
+
+    #[cfg(feature="rt_smol")]
+    pub use smol::io::{AsyncReadExt as Read, AsyncWriteExt as Write};
+
+    #[cfg(feature="rt_glommio")]
+    pub use futures_util::{AsyncReadExt as Read, AsyncWriteExt as Write};
+}
 
 mod util {
     use unsaferef::{UnsafeCow, UnsafeRef};
