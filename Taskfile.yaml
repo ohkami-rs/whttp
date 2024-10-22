@@ -28,4 +28,4 @@ tasks:
 
   bench:
     cmds:
-      - cargo version | grep -q 'nightly' && cargo bench {{.flag}}
+      - cargo version | grep -q 'nightly' && cargo bench {{.flag}} || :
