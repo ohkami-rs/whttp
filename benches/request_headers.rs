@@ -43,7 +43,7 @@ fn incoming_http1_small() -> Vec<u8> {
     "))
 }
 
-#[bench] fn parse_http1_large_httpcrate(b: &mut test::Bencher) {
+#[bench] fn parse_http1_headers_large_httpcrate(b: &mut test::Bencher) {
     use ::http::{HeaderMap, HeaderName, HeaderValue};
 
     let incoming = incoming_http1_large();
@@ -66,7 +66,7 @@ fn incoming_http1_small() -> Vec<u8> {
     });
 }
 
-#[bench] fn parse_http1_large_whttp(b: &mut test::Bencher) {
+#[bench] fn parse_http1_headers_large_whttp(b: &mut test::Bencher) {
     use whttp::{Headers, Header, Value};
 
     let incoming = incoming_http1_large();
@@ -89,7 +89,7 @@ fn incoming_http1_small() -> Vec<u8> {
     });
 }
 
-#[bench] fn parse_http1_small_httpcrate(b: &mut test::Bencher) {
+#[bench] fn parse_http1_headers_small_httpcrate(b: &mut test::Bencher) {
     use ::http::{HeaderMap, HeaderName, HeaderValue};
 
     let incoming = incoming_http1_small();
@@ -112,7 +112,7 @@ fn incoming_http1_small() -> Vec<u8> {
     });
 }
 
-#[bench] fn parse_http1_small_whttp(b: &mut test::Bencher) {
+#[bench] fn parse_http1_headers_small_whttp(b: &mut test::Bencher) {
     use whttp::{Headers, Header, Value};
 
     let incoming = incoming_http1_small();
