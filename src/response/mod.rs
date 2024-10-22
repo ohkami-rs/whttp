@@ -51,14 +51,14 @@ impl Response {
     pub fn payload(&self) -> Option<&[u8]> {
         match self.body()? {
             Body::Payload(p) => Some(p),
-            
+
             #[allow(unreachable_patterns)]
             _ => None
         }
     }
 
     #[inline]
-    pub const fn take_body(&mut self) -> Option<Body> {
+    pub fn take_body(&mut self) -> Option<Body> {
         self.body.take()
     }
 }
