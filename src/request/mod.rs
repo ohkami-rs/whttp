@@ -65,6 +65,13 @@ impl Request {
     pub fn header(&self, header: &Header) -> Option<&str> {
         self.headers.get(header)
     }
+    pub fn cookies(&self) -> Option<impl Iterator<Item = (&str, &str)>> {
+        self.header(crate::header::Cookie).map(|cookies|
+            cookies.split(';').flat_map(|cookie|
+                cookie.trim().split_once('=')
+            )
+        )
+    }
 
     #[inline]
     pub fn body(&self) -> Option<&[u8]> {

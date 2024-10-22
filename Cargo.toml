@@ -51,7 +51,7 @@ http1_glommio   = ["http1", "rt_glommio"]
 
 ### DEBUG ###
 DEBUG = ["tokio?/full"]
-### default = ["DEBUG", "sse", "ws", "http1", "rt_tokio"]
+default = ["DEBUG", "sse", "ws", "http1", "rt_tokio"]
 
 [dev-dependencies]
 http = "1.1"

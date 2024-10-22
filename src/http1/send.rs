@@ -1,4 +1,5 @@
 use crate::{Response, response::Body, io::Write};
+use crate::header::SetCookie;
 
 pub enum Upgrade {
     None,
@@ -40,6 +41,13 @@ pub async fn send(
     let mut buf = [
         b"HTTP/1.1 ", res.status().message().as_bytes(), b"\r\n"
     ].concat();
+    if let Some(set_cookie) = res.take(SetCookie) {
+        for set_cookie in set_cookie.split(',') {
+            buf.extend_from_slice(b"Set-Cookie: ");
+            buf.extend_from_slice(set_cookie.as_bytes());
+            buf.push(b'\r'); buf.push(b'\n');
+        }
+    }
     for (h, v) in res.headers().iter() {
         buf.extend_from_slice(h.as_bytes());
         buf.push(b':'); buf.push(b' ');

@@ -12,6 +12,7 @@
     * pre-calculated fxhash for headers
 
 * _battery included_
+    * Cookie / Set-Cookie support
     * Server-Sent Events : `sse` feature
     * WebSocket : `ws` with `rt_*` feature
     * HTTP/1.1 parsing & writing : `http1` with `rt_*` feature

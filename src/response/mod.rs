@@ -4,7 +4,10 @@ pub use status::Status;
 mod body;
 pub use body::Body;
 
-use crate::headers::{Header, Headers, SetHeader, Value};
+mod setcookie;
+
+
+use crate::headers::{Header, Value, Headers, SetHeader};
 use ::std::borrow::Cow;
 use ::serde::Serialize;
 
@@ -39,6 +42,7 @@ impl Response {
     pub fn headers(&self) -> &Headers {
         &self.headers
     }
+    #[inline]
     pub fn header(&self, header: &Header) -> Option<&str> {
         self.headers.get(header)
     }
@@ -55,6 +59,10 @@ impl Response {
             #[allow(unreachable_patterns)]
             _ => None
         }
+    }
+
+    pub fn take(&mut self, header: &Header) -> Option<Value> {
+        self.headers.remove(header)
     }
 
     #[inline]
