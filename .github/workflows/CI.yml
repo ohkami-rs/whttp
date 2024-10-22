@@ -16,11 +16,9 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - uses: actions-rs/toolchain@v1
+      - uses: dtolnay/rust-toolchain
         with:
           toolchain: ${{ matrix.toolchain }}
-          profile:   minimal
-          override:  true
 
       - name: Taskfile
         run:  |
