@@ -13,8 +13,8 @@ pub async fn load(
     match conn.read(&mut **buf).await {
         Err(e) => return match e.kind() {
             ErrorKind::ConnectionReset => Ok(None),
-            _ => Err((|err| {
-                #[cfg(feature="DEBUG")] {eprintln!("failed to load Request: {err}")}
+            _ => Err((|_err| {
+                #[cfg(feature="DEBUG")] {eprintln!("failed to load Request: {_err}")}
                 Status::InternalServerError
             })(e))
         },
@@ -98,7 +98,7 @@ async fn load_body(
 
 
 
-#[cfg(feature="DEBUG")]
+#[cfg(all(feature="DEBUG",feature="rt_tokio"))]
 #[cfg(test)]
 #[tokio::test]
 async fn test_load_request() {

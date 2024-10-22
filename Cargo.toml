@@ -12,24 +12,26 @@ description   = "A new, opinionated implementation of HTTP types"
 keywords      = ["http"]
 categories    = ["web-programming"]
 
+[package.metadata.docs.rs]
+features = ["sse", "ws", "http1", "rt_tokio"]
+
 [dependencies]
 hashbrown        = { version = "0.15" }
 percent-encoding = { version = "2.3"  }
 unsaferef        = { version = "0.1"  }
 serde            = { version = "1.0"  }
 serde_json       = { version = "1.0"  }
-# futures-core     = { optional = true, version = "0.3" }
-futures-util     = { optional = true, version = "0.3", default-features = false, features = ["io"] }
 byte_reader      = { optional = true, version = "3.1" }
+futures-core     = { optional = true, version = "0.3" }
 mews             = { optional = true, git = "https://github.com/ohkami-rs/mews" }
-
-tokio     = { optional = true, version = "1.40", features = ["io-util"] }
-async-std = { optional = true, version = "1.13" }
-smol      = { optional = true, version = "2.0" }
-# glommio = { optional = true, version = "0.9" }
+tokio        = { optional = true, version = "1.40", features = ["io-util"] }
+async-std    = { optional = true, version = "1.13" }
+smol         = { optional = true, version = "2.0" }
+# glommio    = { optional = true, version = "0.9" }
+futures-util = { optional = true, version = "0.3", default-features = false, features = ["io"] }
 
 [features]
-sse = ["dep:futures-util"]
+sse = ["dep:futures-core"]
 ws  = ["dep:mews"]
 http1 = ["dep:byte_reader"]
 rt_tokio     = ["dep:tokio",        "mews?/tokio"]
@@ -48,9 +50,10 @@ http1_smol      = ["http1", "rt_smol"]
 http1_glommio   = ["http1", "rt_glommio"]
 
 ### DEBUG ###
-DEBUG   = ["tokio?/full"]
-default = ["DEBUG", "sse", "ws", "http1", "rt_tokio"]
+DEBUG = ["tokio?/full"]
+### default = ["DEBUG", "sse", "ws", "http1", "rt_tokio"]
 
 [dev-dependencies]
 http = "1.1"
 byte_reader = "3.1"
+futures-util = { version = "0.3", default-features = false, features = ["io"] }

@@ -9,7 +9,7 @@ use ::std::borrow::Cow;
 use ::serde::Serialize;
 
 #[cfg(feature="sse")]
-use ::futures_util::Stream;
+use ::futures_core::Stream;
 
 #[cfg(feature="ws")]
 use ::mews::WebSocket;
@@ -51,6 +51,8 @@ impl Response {
     pub fn payload(&self) -> Option<&[u8]> {
         match self.body()? {
             Body::Payload(p) => Some(p),
+            
+            #[allow(unreachable_patterns)]
             _ => None
         }
     }
@@ -152,8 +154,15 @@ impl Response {
     #[cfg(feature="ws")]
     pub fn set_websocket(
         &mut self,
+        sec_websocket_accept: String,
         websocket: WebSocket
     ) -> &mut Self {
+        use crate::header::{Connection, Upgrade, SecWebSocketAccept};
+
+        self.status = Status::SwitchingProtocols;
+        self.set(Connection, "Upgrade")
+            .set(Upgrade, "websocket")
+            .set(SecWebSocketAccept, sec_websocket_accept);
         self.body = Some(Body::WebSocket(websocket));
         self
     }
@@ -224,9 +233,10 @@ impl Response {
     #[cfg(feature="ws")]
     pub fn with_websocket(
         mut self,
+        sec_websocket_accept: String,
         websocket: WebSocket
     ) -> Self {
-        self.body = Some(Body::WebSocket(websocket));
+        self.set_websocket(sec_websocket_accept, websocket);
         self
     }
 }

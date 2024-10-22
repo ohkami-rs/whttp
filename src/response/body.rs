@@ -1,7 +1,7 @@
 use std::borrow::Cow;
 
 #[cfg(feature="sse")]
-use ::futures_util::Stream;
+use ::futures_core::Stream;
 
 #[cfg(feature="ws")]
 use ::mews::WebSocket;
@@ -27,6 +27,7 @@ impl PartialEq for Body {
             #[cfg(feature="ws")]
             (Body::WebSocket(_), Body::WebSocket(_)) => false/* can't compare */,
 
+            #[allow(unreachable_patterns)]
             _ => false
         }
     }
@@ -36,7 +37,7 @@ impl std::fmt::Debug for Body {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Self::Payload(p) => f.debug_tuple("Body::Payload")
-                .field(p)
+                .field(&p.escape_ascii().to_string())
                 .finish(),
             
             #[cfg(feature="sse")]

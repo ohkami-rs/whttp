@@ -39,8 +39,8 @@ mod __whttp__ {
     use super::*;
     pub use ::whttp::*;
 
-    pub const X_MYAPP_DATA: &Header = &Header::new("x-myapp-data");
-    pub const SOMETHING:    &Header = &Header::new("something");
+    pub const X_MYAPP_DATA: &Header = &Header::def("x-myapp-data");
+    pub const SOMETHING:    &Header = &Header::def("something");
 
     #[inline(always)]
     pub fn init(h: &mut Headers) {

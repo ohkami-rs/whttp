@@ -9,6 +9,17 @@
 ))]
 compile_error! {"`ws` feature can't be activate without a `rt_*` feature"}
 
+#[cfg(all(
+    feature="http1",
+    not(any(
+        feature="rt_tokio",
+        feature="rt_async-std",
+        feature="rt_smol",
+        feature="rt_glommio",
+    ))
+))]
+compile_error! {"`http1` feature can't be activate without a `rt_*` feature"}
+
 #[cfg(any(
     all(feature="rt_tokio",feature="rt_async-std"),
     all(feature="rt_tokio",feature="rt_smol"),
