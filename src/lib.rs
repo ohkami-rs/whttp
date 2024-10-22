@@ -45,6 +45,7 @@ pub mod ws {pub use mews::*;}
 #[cfg(feature="http1")]
 pub mod http1;
 
+#[cfg(any(feature="http1"))]
 mod io {
     #[cfg(feature="rt_tokio")]
     pub use tokio::io::{AsyncReadExt as Read, AsyncWriteExt as Write};

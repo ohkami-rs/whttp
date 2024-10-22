@@ -1,12 +1,19 @@
-version: '3'
+version: 3
 
 tasks:
   CI:
     deps:
-      - test:default
-      - test:rt
       - test:doc
-      - bench
+      - test:default
+      - for:  [tokio, async-std, smol, glommio]
+        task: test:rt
+        vars: { rt: '{{.ITEM}}' }
+      - task: bench
+        vars: { flag: '--no-run' }
+
+  test:doc:
+    cmds:
+      - cargo test --doc --features sse,ws,http1,rt_tokio
 
   test:default:
     cmds:
@@ -14,20 +21,11 @@ tasks:
       - cargo test --lib --features sse
 
   test:rt:
-    vars:
-      rt: ['tokio', 'async-std', 'smol', 'glommio']
     cmds:
-      - for: { var: rt }
-        cmd: cargo test --lib --features rt_{{.ITEM}},ws
-      - for: { var: rt }
-        cmd: cargo test --lib --features rt_{{.ITEM}},http1
-      - for: { var: rt }
-        cmd: cargo test --lib --features rt_{{.ITEM}},sse,ws,http1
-
-  test:doc:
-    cmds:
-      - cargo test --doc --features sse,ws,http1,rt_tokio
+      - cargo test --lib --features rt_{{.rt}},ws
+      - cargo test --lib --features rt_{{.rt}},http1
+      - cargo test --lib --features rt_{{.rt}},sse,ws,http1
 
   bench:
     cmds:
-      - cargo version | grep -q 'nightly' && cargo bench
+      - cargo version | grep -q 'nightly' && cargo bench {{.flag}}
