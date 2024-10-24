@@ -13,7 +13,7 @@ tasks:
 
   test:doc:
     cmds:
-      - cargo test --doc --features sse,ws,http1,rt_tokio
+      - cargo test --doc --features DOCTEST
 
   test:default:
     cmds:

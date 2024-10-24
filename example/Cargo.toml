@@ -1,0 +1,8 @@
+[package]
+name    = "hello"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+whttp = { path = "..", features = ["http1", "rt_tokio"] }
+tokio = { version = "1", features = ["full"] }

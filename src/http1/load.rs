@@ -4,10 +4,15 @@ use std::{pin::Pin, io::ErrorKind, str::FromStr as _};
 
 const PAYLOAD_LIMIT: usize = 1 << 32;
 
+pub fn init() -> Request {
+    parse::new()
+}
+
 pub async fn load(
     mut req: Pin<&mut Request>,
     conn: &mut (impl Read + Unpin)
 ) -> Result<Option<()>, Status> {
+    parse::clear(&mut req);
     let buf = parse::buf(req.as_mut());
 
     match conn.read(&mut **buf).await {
@@ -108,56 +113,56 @@ async fn test_load_request() {
     let mut req = Pin::new(&mut req);
 
     {
-        let mut case: &[u8] = {parse::clear(&mut req); b"\
-        "};
+        let mut case: &[u8] = b"\
+        ";
         assert_eq!(load(req.as_mut(), &mut case).await, Ok(None));
     }
     {
-        let mut case: &[u8] = {parse::clear(&mut req); b"\
+        let mut case: &[u8] = b"\
             GET /HTTP/2\r\n\
             \r\n\
-        "};
+        ";
         assert_eq!(load(req.as_mut(), &mut case).await, Err(Status::BadRequest));
     }
     {
-        let mut case: &[u8] = {parse::clear(&mut req); b"\
+        let mut case: &[u8] = b"\
             GET / HTTP/2\r\n\
             \r\n\
-        "};
+        ";
         assert_eq!(load(req.as_mut(), &mut case).await, Err(Status::HTTPVersionNotSupported));
     }
     {
-        let mut case: &[u8] = {parse::clear(&mut req); b"\
+        let mut case: &[u8] = b"\
             GET / HTTP/1.1\r\n\
-        "};
+        ";
         assert_eq!(load(req.as_mut(), &mut case).await, Err(Status::BadRequest));
     }
     {
-        let mut case: &[u8] = {parse::clear(&mut req); b"\
+        let mut case: &[u8] = b"\
             GET / HTTP/1.1\r\n\
             \r\n\
-        "};
+        ";
         assert_eq!(load(req.as_mut(), &mut case).await, Ok(Some(())));
         assert_eq!(*req, Request::GET("/"));
     }
     {
-        let mut case: &[u8] = {parse::clear(&mut req); b"\
+        let mut case: &[u8] = b"\
             GET / HTTP/1.1\r\n\
             Host: http://127.0.0.1:3000\r\n\
             \r\n\
-        "};
+        ";
         assert_eq!(load(req.as_mut(), &mut case).await, Ok(Some(())));
         assert_eq!(*req, Request::GET("/").with(Host, "http://127.0.0.1:3000"));
     }
     {
-        let mut case: &[u8] = {parse::clear(&mut req); b"\
+        let mut case: &[u8] = b"\
             POST /api/users HTTP/1.1\r\n\
             Host: http://127.0.0.1:3000\r\n\
             Content-Type: application/json\r\n\
             Content-Length: 24\r\n\
             \r\n\
             {\"name\":\"whttp\",\"age\":0}\
-        "};
+        ";
         assert_eq!(load(req.as_mut(), &mut case).await, Ok(Some(())));
         assert_eq!(*req,
             Request::POST("/api/users")
@@ -166,14 +171,14 @@ async fn test_load_request() {
         );
     }
     {
-        let mut case: &[u8] = {parse::clear(&mut req); b"\
+        let mut case: &[u8] = b"\
             POST /api/users HTTP/1.1\r\n\
             Host: http://127.0.0.1:3000\r\n\
             Content-Type: application/json\r\n\
             Content-Length: 22\r\n\
             \r\n\
             {\"name\":\"whttp\",\"age\":0}\
-        "};
+        ";
         assert_eq!(load(req.as_mut(), &mut case).await, Ok(Some(())));
         assert_eq!(*req,
             Request::POST("/api/users")
@@ -182,14 +187,14 @@ async fn test_load_request() {
         );
     }
     {
-        let mut case: &[u8] = {parse::clear(&mut req); b"\
+        let mut case: &[u8] = b"\
             POST /api/users HTTP/1.1\r\n\
             host: http://127.0.0.1:3000\r\n\
             content-type: application/json\r\n\
             content-length: 24\r\n\
             \r\n\
             {\"name\":\"whttp\",\"age\":0}\
-        "};
+        ";
         assert_eq!(load(req.as_mut(), &mut case).await, Ok(Some(())));
         assert_eq!(*req,
             Request::POST("/api/users")
@@ -198,14 +203,14 @@ async fn test_load_request() {
         );
     }
     {
-        let mut case: &[u8] = {parse::clear(&mut req); b"\
+        let mut case: &[u8] = b"\
             POST /api/users HTTP/1.1\r\n\
             host: http://127.0.0.1:3000\r\n\
             content-type: application/json\r\n\
             content-Length: 24\r\n\
             \r\n\
             {\"name\":\"whttp\",\"age\":0}\
-        "};
+        ";
         assert_eq!(load(req.as_mut(), &mut case).await, Ok(Some(())));
         assert_eq!(*req,
             Request::POST("/api/users")
