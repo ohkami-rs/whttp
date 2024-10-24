@@ -11,24 +11,24 @@
     <a href="https://crates.io/crates/whttp"><img alt="crates.io" src="https://img.shields.io/crates/v/whttp" /></a>
 </div>
 
-## What's advantage over http crate？
+## What's the advantage over http crate？
 
-### fast, efficient
+### fast and efficient
 
 * swiss table (by hashbrown) and pre-calculated fxhash for `Headers`
-* pre-matching standard headers before hashing in parsing
-* `Request` construction with zero or least copy from parsing buffer and very minimum allocation
-* size of `Request` is *128* and size of `Response` is *64*
+* pre-matches standard headers before hashing during parsing
+* `Request` construction with zero or least copy from parsing buffer and minimum allocation
+* size of `Request` is *128*, and size of `Response` is *64*
 * [micro benchmarks](https://github.com/ohkami-rs/whttp/blob/main/benches)
 
 ### batteries included
 
 * consistent and clear API
-* builtin support for Cookie, Set-Cookie, IMF-fixdate header values and JSON response body
+* builtin support for Cookie, Set-Cookie, IMF-fixdate header values, and JSON response bodies
 * Server-Sent Events on `sse` feature
 * WebSocket on `ws` & `rt_*` feature
 * HTTP/1.1 parsing & writing on `http1` & `rt_*` feature
-* supported runtimes ( `rt_*` ) : `tokio`, `async-std`, `smol`, `glommio`
+* supported runtimes ( on `rt_*` ) : `tokio`, `async-std`, `smol`, `glommio`
 
 ## [Example](https://github.com/ohkami-rs/whttp/blob/main/example)
 
@@ -78,6 +78,6 @@ async fn handle(req: &Request) -> Response {
 }
 ```
 
-## LICENSE
+## License
 
 whttp is licensed under MIT LICENSE ( [LICENSE](https://github.com/ohkami-rs/whttp/blob/main/LICENSE) or [https://opensource.org/licenses/MIT](https://opensource.org/licenses/MIT) ).
