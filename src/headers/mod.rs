@@ -2,6 +2,8 @@ mod hash;
 mod name;
 mod value;
 
+pub mod util;
+
 pub use name::{Header, standard};
 pub use value::Value;
 

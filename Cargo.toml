@@ -8,7 +8,7 @@ homepage      = "https://crates.io/crates/whttp"
 repository    = "https://github.com/ohkami-rs/whttp"
 readme        = "README.md"
 license       = "MIT"
-description   = "A new, opinionated implementation of HTTP types"
+description   = "A new, opinionated implementation of HTTP types for Rust"
 keywords      = ["http"]
 categories    = ["web-programming"]
 
@@ -50,8 +50,8 @@ http1_smol      = ["http1", "rt_smol"]
 http1_glommio   = ["http1", "rt_glommio"]
 
 ### DEBUG ###
-DEBUG = ["tokio?/full"]
-default = ["DEBUG", "sse", "ws", "http1", "rt_tokio"]
+DEBUG = []
+### default = ["DEBUG", "sse", "ws", "http1", "rt_tokio", "tokio/full"]
 
 [dev-dependencies]
 http = "1.1"

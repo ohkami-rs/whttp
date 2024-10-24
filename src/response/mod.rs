@@ -4,8 +4,6 @@ pub use status::Status;
 mod body;
 pub use body::Body;
 
-mod setcookie;
-
 
 use crate::headers::{Header, Value, Headers, SetHeader};
 use ::std::borrow::Cow;

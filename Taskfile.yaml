@@ -3,8 +3,8 @@ version: 3
 tasks:
   CI:
     deps:
-      - test:doc
-      - test:default
+      - task: test:doc
+      - task: test:default
       - for:  [tokio, async-std, smol, glommio]
         task: test:rt
         vars: { rt: '{{.ITEM}}' }
