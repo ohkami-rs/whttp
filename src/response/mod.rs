@@ -182,7 +182,7 @@ impl Response {
 
     #[inline(always)]
     pub fn with(mut self, header: &Header, value: impl Into<Value>) -> Self {
-        self.headers.insert(header, value);
+        self.headers.append(header, value);
         self
     }
 

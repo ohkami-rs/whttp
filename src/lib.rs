@@ -1,3 +1,5 @@
+#![cfg_attr(feature="DEBUG", doc = include_str!("../README.md"))]
+
 #[cfg(all(
     feature="ws",
     not(any(

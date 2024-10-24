@@ -36,17 +36,17 @@ impl PartialEq for Body {
 impl std::fmt::Debug for Body {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Self::Payload(p) => f.debug_tuple("Body::Payload")
+            Self::Payload(p) => f.debug_tuple("Payload")
                 .field(&p.escape_ascii().to_string())
                 .finish(),
             
             #[cfg(feature="sse")]
-            Self::Stream(_) => f.debug_tuple("Body::Stream")
+            Self::Stream(_) => f.debug_tuple("Stream")
                 .field(&"...")
                 .finish(),
 
             #[cfg(feature="ws")]
-            Self::WebSocket(_) => f.debug_tuple("Body::WebSocket")
+            Self::WebSocket(_) => f.debug_tuple("WebSocket")
                 .field(&"...")
                 .finish()
         }

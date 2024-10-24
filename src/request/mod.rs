@@ -246,12 +246,25 @@ pub mod parse {
     /// * `bytes` must be alive as long as `path` of `this` is in use;
     ///   especially, reading from `this.buf`
     pub unsafe fn path(this: &mut Pin<&mut Request>, bytes: &[u8]) -> Result<(), Status> {
-        (bytes.len() > 0 && *bytes.get_unchecked(0) == b'/' && bytes.is_ascii())
-            .then_some(this.path = Str::Ref(UnsafeRef::new(
+        if bytes.len() > 0 && bytes.is_ascii() {
+            #[cfg(debug_assertions)]
+            if *bytes.get_unchecked(0) != b'/' {
+                eprintln!("\
+                    Currently whttp only supports requests starting with \
+                    `<method> <path>` , NOT `<method> <URI>`, on expectation that \
+                    the host (and port) is contained in `Host` header. \
+                ");
+                return Err(Status::NotImplemented)
+            }
+
+            Ok(this.path = Str::Ref(UnsafeRef::new(
                 // SAFETY: already checked `bytes` is ascii
                 std::str::from_utf8_unchecked(bytes)
             )))
-            .ok_or(Status::BadRequest)
+
+        } else {
+            Err(Status::BadRequest)
+        }
     }
 
     #[inline]

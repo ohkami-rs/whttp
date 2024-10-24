@@ -1,5 +1,5 @@
-use crate::{Response, response::Body, io::Write};
-use crate::header::SetCookie;
+use crate::{Response, Status, response::Body, io::Write};
+use crate::header::{ContentLength, SetCookie};
 
 pub enum Upgrade {
     None,
@@ -38,6 +38,12 @@ pub async fn send(
     mut res: Response,
     conn: &mut (impl Write + Unpin)
 ) -> Result<Upgrade, std::io::Error> {
+    if res.header(ContentLength).is_none()
+    && res.body().is_none()
+    && res.status() != Status::NoContent {
+        res.set(ContentLength, "0");
+    }
+
     let mut buf = [
         b"HTTP/1.1 ", res.status().message().as_bytes(), b"\r\n"
     ].concat();
