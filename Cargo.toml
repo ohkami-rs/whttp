@@ -50,8 +50,10 @@ http1_smol      = ["http1", "rt_smol"]
 http1_glommio   = ["http1", "rt_glommio"]
 
 ### DEBUG ###
-DEBUG = []
-### default = ["DEBUG", "sse", "ws", "http1", "rt_tokio", "tokio/full"]
+DEBUG   = []
+DEV     = ["DEBUG", "sse", "ws", "http1", "rt_tokio"]
+DOCTEST = ["DEV", "tokio?/full"]
+### default = ["DEV"]
 
 [dev-dependencies]
 http = "1.1"

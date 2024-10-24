@@ -37,7 +37,7 @@
 whttp = { version = "0.1", features = ["http1", "rt_tokio"] }
 tokio = { version = "1", features = ["full"] }
 ```
-```rust
+```rust,no_run
 use whttp::{Request, Response, http1};
 use whttp::header::{ContentType, Date};
 use whttp::util::IMFfixdate;
