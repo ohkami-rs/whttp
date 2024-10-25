@@ -54,7 +54,7 @@ impl Response {
         match self.body()? {
             Body::Payload(p) => Some(p),
 
-            #[allow(unreachable_patterns)]
+            #[cfg(any(feature="sse", feature="ws"))]
             _ => None
         }
     }

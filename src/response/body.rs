@@ -27,7 +27,7 @@ impl PartialEq for Body {
             #[cfg(feature="ws")]
             (Body::WebSocket(_), Body::WebSocket(_)) => false/* can't compare */,
 
-            #[allow(unreachable_patterns)]
+            #[cfg(any(feature="sse", feature="ws"))]
             _ => false
         }
     }
