@@ -78,6 +78,13 @@ pub mod util {
         fn into_bytes(self) -> Bytes;
     }
     const _: () = {
+        impl IntoBytes for Bytes {
+            #[inline]
+            fn into_bytes(self) -> Bytes {
+                self
+            }
+        }
+
         impl IntoBytes for &'static [u8] {
             #[inline]
             fn into_bytes(self) -> Bytes {

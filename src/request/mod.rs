@@ -110,10 +110,10 @@ impl Request {
         self
     }
 
-    pub fn with_text(self, text: impl Into<Cow<'static, str>>) -> Self {
-        self.with_body("text/plain; charset=UTF-8", match text.into() {
-            Cow::Borrowed(s) => Cow::Borrowed(s.as_bytes()),
-            Cow::Owned(s)    => Cow::Owned(s.into_bytes())
+    pub fn with_text(self, text: impl IntoStr) -> Self {
+        self.with_body("text/plain; charset=UTF-8", match text.into_str() {
+            Str::Ref(s) => Bytes::Ref(unsafe {UnsafeRef::new(s.as_bytes())}),
+            Str::Own(o) => Bytes::Own(o.into_bytes())
         })
     }
 

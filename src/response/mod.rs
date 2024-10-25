@@ -4,9 +4,9 @@ pub use status::Status;
 mod body;
 pub use body::Body;
 
-
 use crate::headers::{Header, Value, Headers, SetHeader};
-use ::std::borrow::Cow;
+use crate::util::{IntoBytes, IntoStr, Bytes, Str};
+use ::unsaferef::UnsafeRef;
 use ::serde::Serialize;
 
 #[cfg(feature="sse")]
@@ -108,11 +108,11 @@ impl Response {
     pub fn set_payload(
         &mut self,
         content_type: &'static str,
-        payload: impl Into<Cow<'static, [u8]>>
+        payload: impl IntoBytes
     ) -> &mut Self {
         use crate::header::{ContentLength, ContentType};
 
-        let payload: Cow<'static, [u8]> = payload.into();
+        let payload = payload.into_bytes();
         self.set(ContentType, content_type)
             .set(ContentLength, payload.len());
         self.body = Some(Body::Payload(payload));
@@ -120,20 +120,20 @@ impl Response {
     }
 
     #[inline]
-    pub fn set_text(&mut self, text: impl Into<Cow<'static, str>>) -> &mut Self {
-        let text: Cow<'static, str> = text.into();
+    pub fn set_text(&mut self, text: impl IntoStr) -> &mut Self {
+        let text = text.into_str();
         self.set_payload("text/plain; charset=UTF-8", match text {
-            Cow::Borrowed(b) => Cow::Borrowed(b.as_bytes()),
-            Cow::Owned(o) => Cow::Owned(o.into_bytes())
+            Str::Ref(s) => Bytes::Ref(unsafe {UnsafeRef::new(s.as_bytes())}),
+            Str::Own(o) => Bytes::Own(o.into_bytes())
         })
     }
 
     #[inline]
-    pub fn set_html(&mut self, html: impl Into<Cow<'static, str>>) -> &mut Self {
-        let text: Cow<'static, str> = html.into();
-        self.set_payload("text/html; charset=UTF-8", match text {
-            Cow::Borrowed(b) => Cow::Borrowed(b.as_bytes()),
-            Cow::Owned(o) => Cow::Owned(o.into_bytes())
+    pub fn set_html(&mut self, html: impl IntoStr) -> &mut Self {
+        let html = html.into_str();
+        self.set_payload("text/html; charset=UTF-8", match html {
+            Str::Ref(s) => Bytes::Ref(unsafe {UnsafeRef::new(s.as_bytes())}),
+            Str::Own(o) => Bytes::Own(o.into_bytes())
         })
     }
 
@@ -203,20 +203,20 @@ impl Response {
     pub fn with_payload(
         mut self,
         content_type: &'static str,
-        payload: impl Into<Cow<'static, [u8]>>
+        payload: impl IntoBytes
     ) -> Self {
         self.set_payload(content_type, payload);
         self
     }
 
     #[inline]
-    pub fn with_text(mut self, text: impl Into<Cow<'static, str>>) -> Self {
+    pub fn with_text(mut self, text: impl IntoStr) -> Self {
         self.set_text(text);
         self
     }
 
     #[inline]
-    pub fn with_html(mut self, html: impl Into<Cow<'static, str>>) -> Self {
+    pub fn with_html(mut self, html: impl IntoStr) -> Self {
         self.set_html(html);
         self
     }
