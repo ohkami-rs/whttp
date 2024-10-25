@@ -13,7 +13,7 @@ tasks:
 
   test:doc:
     cmds:
-      - cargo test --doc --features DOCTEST
+      - cargo test --doc --features DEV
 
   test:default:
     cmds:

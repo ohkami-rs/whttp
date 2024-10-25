@@ -26,7 +26,7 @@ const _: () = {
                 #[cfg(feature="ws")]
                 (Upgrade::WebSocket(_), Upgrade::WebSocket(_)) => true,
 
-                #[allow(unreachable_patterns)]
+                #[cfg(feature="ws")]
                 _ => false
             }
         }
